@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏒 Hockey Shot Analyzer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- ── HEADER ── -->
+  <header>
+    <span class="logo">🏒</span>
+    <div>
+      <h1>Hockey Shot Analyzer</h1>
+      <p class="tagline">Upload your clip · See your skeleton · Improve your shot</p>
+    </div>
+    <button id="historyBtn" class="btn-ghost" onclick="showHistory()">📊 History</button>
+  </header>
+
+  <!-- ── MAIN ── -->
+  <main>
+
+    <!-- Upload panel -->
+    <section id="uploadSection">
+      <div class="upload-card" id="dropZone">
+        <div class="upload-icon">🎬</div>
+        <h2>Drop your shot clip here</h2>
+        <p>or click to browse &nbsp;·&nbsp; MP4 / MOV &nbsp;·&nbsp; 5–10 seconds</p>
+        <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/avi" hidden />
+        <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose Video</button>
+        <p class="hint">🎯 Best results: side view · 1080p · 60 fps · good lighting</p>
+      </div>
+
+      <div class="or-divider"><span>or</span></div>
+
+      <div class="youtube-card">
+        <div class="upload-icon">📺</div>
+        <h2>Paste a YouTube link</h2>
+        <p>Optionally trim to just the shot (max 60 seconds)</p>
+        <input type="url" id="ytUrl" placeholder="https://youtube.com/watch?v=... or https://youtu.be/..." />
+        <div class="yt-times">
+          <label>
+            <span>Start</span>
+            <input type="text" id="ytStart" placeholder="0:05" />
+          </label>
+          <label>
+            <span>End</span>
+            <input type="text" id="ytEnd" placeholder="0:15" />
+          </label>
+        </div>
+        <button class="btn-primary" onclick="submitYouTube()">Analyze YouTube Clip</button>
+        <p class="hint">⏱ Time format: <code>SS</code> · <code>MM:SS</code> · <code>HH:MM:SS</code></p>
+      </div>
+    </section>
+
+    <!-- Progress -->
+    <section id="progressSection" class="hidden">
+      <div class="progress-card">
+        <div class="spinner"></div>
+        <h2 id="progressMsg">Uploading clip…</h2>
+        <p>Detecting landmarks and computing your shot score</p>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="resultsSection" class="hidden">
+
+      <div class="results-top">
+        <!-- Left: skeleton video + score summary stacked underneath -->
+        <div class="left-panel">
+          <h3>Skeleton Overlay</h3>
+          <video id="overlayVideo" controls loop playsinline muted preload="metadata">
+            <source id="overlayVideoSource" src="" type='video/mp4; codecs="avc1.42E01E"' />
+            Your browser doesn't support HTML5 video.
+          </video>
+          <p class="hint" id="videoStatus">⏳ Building overlay video…</p>
+
+          <div class="overall-badge" id="overallBadge">
+            <span class="overall-label">Shot Score</span>
+            <span class="overall-num" id="overallNum">—</span>
+            <span class="overall-100">/ 100</span>
+          </div>
+
+          <div class="sub-scores">
+            <div class="sub-score" id="sub-power">
+              <span class="sub-icon">💪</span>
+              <span class="sub-label">Power</span>
+              <span class="sub-val" id="powerNum">—</span>
+            </div>
+            <div class="sub-score" id="sub-technique">
+              <span class="sub-icon">🎯</span>
+              <span class="sub-label">Technique</span>
+              <span class="sub-val" id="techniqueNum">—</span>
+            </div>
+            <div class="sub-score" id="sub-timing">
+              <span class="sub-icon">⚡</span>
+              <span class="sub-label">Timing</span>
+              <span class="sub-val" id="timingNum">—</span>
+            </div>
+          </div>
+
+          <p class="filename-label" id="filenameLabel"></p>
+        </div>
+
+        <!-- Right: shot breakdown grid -->
+        <div class="breakdown-panel">
+          <h3 class="section-title section-title-inline">Shot Breakdown</h3>
+          <div class="metric-grid metric-grid-side" id="metricGrid"></div>
+        </div>
+      </div>
+
+      <!-- Coach's Report -->
+      <h3 class="section-title">🏒 Coach's Report</h3>
+      <div id="coachStrengths" class="coach-block strengths"></div>
+      <div id="coachFocus" class="coach-block focus"></div>
+      <div id="coachDrills" class="coach-drills"></div>
+
+      <!-- Try another -->
+      <div class="try-again">
+        <button class="btn-primary" onclick="resetUI()">📹 Analyze Another Shot</button>
+        <button class="btn-ghost" onclick="showHistory()">📊 View History</button>
+      </div>
+    </section>
+
+    <!-- History panel -->
+    <section id="historySection" class="hidden">
+      <div class="history-header">
+        <h3 class="section-title" style="margin:0">📊 Shot History</h3>
+        <button class="btn-danger" onclick="clearAllHistory()">🗑 Clear All</button>
+      </div>
+
+      <div id="historyList" class="history-list"></div>
+
+      <!-- Detail view (loaded when a row is clicked) -->
+      <div id="historyDetail" class="hidden">
+        <button class="btn-ghost small" onclick="closeHistoryDetail()" style="margin-bottom:16px">⬅ Back to History</button>
+        <div id="historyDetailContent"></div>
+      </div>
+
+      <button class="btn-ghost" onclick="showUpload()" style="margin-top:8px">⬅ Analyze New Shot</button>
+    </section>
+
+  </main>
+
+  <!-- Floating "new clip" action button (visible everywhere except upload page) -->
+  <button id="fabNewClip" class="fab" onclick="resetUI()" title="Analyze another shot">
+    <span class="fab-icon">＋</span>
+    <span class="fab-label">New Clip</span>
+  </button>
+
+  <!-- Full-window drag overlay -->
+  <div id="windowDragOverlay" class="window-drag-overlay hidden">
+    <div class="window-drag-inner">
+      <div class="upload-icon">🎬</div>
+      <h2>Drop to analyze new clip</h2>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

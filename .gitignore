@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.env
+
+# MediaPipe model (auto-downloaded by run.sh)
+backend/pose_landmarker.task
+
+# Backups
+*.bak
+
+# Runtime artifacts (uploaded videos, generated overlays, frames, history)
+uploads/
+output/
+backend/uploads/
+backend/output/
+backend/history.csv
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+nohup.out

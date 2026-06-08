@@ -107,15 +107,26 @@ def run_pose_detection(video_path: str, sample_every: int = 1,
             frame_data = {"frame": idx, "landmarks": None}
             if detection.pose_landmarks:
                 lm = detection.pose_landmarks[0]
-                cur = {
-                    name: {
+                # MediaPipe also returns metric, root-centered world landmarks
+                # (origin = hip midpoint, units = meters). Joint angles
+                # computed from these are far less sensitive to camera yaw /
+                # tilt than the image-space x,y projection — a true joint
+                # angle is the same regardless of where the camera sits.
+                wlm = (detection.pose_world_landmarks[0]
+                       if detection.pose_world_landmarks else None)
+                cur = {}
+                for name, i in LANDMARKS.items():
+                    entry = {
                         "x": lm[i].x,
                         "y": lm[i].y,
                         "z": lm[i].z,
                         "v": lm[i].visibility if hasattr(lm[i], "visibility") else 1.0,
                     }
-                    for name, i in LANDMARKS.items()
-                }
+                    if wlm is not None:
+                        entry["wx"] = wlm[i].x
+                        entry["wy"] = wlm[i].y
+                        entry["wz"] = wlm[i].z
+                    cur[name] = entry
                 # EMA smoothing — only when both prev and current have the same
                 # landmark visible. Big visibility drops indicate occlusion, so
                 # we re-initialise the filter instead of blending in stale data.
@@ -127,6 +138,10 @@ def run_pose_detection(video_path: str, sample_every: int = 1,
                         p["x"] = smooth_alpha * p["x"] + (1 - smooth_alpha) * q["x"]
                         p["y"] = smooth_alpha * p["y"] + (1 - smooth_alpha) * q["y"]
                         p["z"] = smooth_alpha * p["z"] + (1 - smooth_alpha) * q["z"]
+                        if "wx" in p and "wx" in q:
+                            p["wx"] = smooth_alpha * p["wx"] + (1 - smooth_alpha) * q["wx"]
+                            p["wy"] = smooth_alpha * p["wy"] + (1 - smooth_alpha) * q["wy"]
+                            p["wz"] = smooth_alpha * p["wz"] + (1 - smooth_alpha) * q["wz"]
                 prev_lm = cur
                 frame_data["landmarks"] = cur
             else:
@@ -145,4 +160,28 @@ def angle_3pts(a: dict, b: dict, c: dict) -> float:
     va = np.array([a["x"] - b["x"], a["y"] - b["y"]])
     vc = np.array([c["x"] - b["x"], c["y"] - b["y"]])
     cos_angle = np.dot(va, vc) / (np.linalg.norm(va) * np.linalg.norm(vc) + 1e-8)
+    return float(np.degrees(np.arccos(np.clip(cos_angle, -1.0, 1.0))))
+
+
+def angle_3pts_3d(a: dict, b: dict, c: dict) -> float:
+    """Joint angle (degrees) at vertex b computed from MediaPipe **world**
+    landmarks (wx, wy, wz in meters, hip-centered).
+
+    Use this for any joint-angle metric (knee bend, elbow extension,
+    shoulder/hip/knee body line, shoulder-line vs hip-line rotation, etc.).
+    Joint angles are intrinsic to the body and are invariant to camera yaw
+    and tilt — so reading them from world landmarks instead of image-space
+    x,y removes most perspective error.
+
+    Falls back to the 2D `angle_3pts` (image x,y) when world coords are
+    missing on any of the three landmarks, so legacy callers keep working.
+    """
+    if not all("wx" in p for p in (a, b, c)):
+        return angle_3pts(a, b, c)
+    va = np.array([a["wx"] - b["wx"], a["wy"] - b["wy"], a["wz"] - b["wz"]])
+    vc = np.array([c["wx"] - b["wx"], c["wy"] - b["wy"], c["wz"] - b["wz"]])
+    denom = np.linalg.norm(va) * np.linalg.norm(vc)
+    if denom < 1e-8:
+        return angle_3pts(a, b, c)
+    cos_angle = float(np.dot(va, vc) / denom)
     return float(np.degrees(np.arccos(np.clip(cos_angle, -1.0, 1.0))))

@@ -52,6 +52,49 @@
         <button class="btn-primary" onclick="submitYouTube()">Analyze YouTube Clip</button>
         <p class="hint">⏱ Time format: <code>SS</code> · <code>MM:SS</code> · <code>HH:MM:SS</code></p>
       </div>
+
+      <!-- Filming tips -->
+      <details class="tips-card" id="filmingTips">
+        <summary>
+          <span class="tips-icon">🎥</span>
+          <span class="tips-title">Tips for the best results</span>
+          <span class="tips-hint">click to expand</span>
+        </summary>
+        <div class="tips-body">
+          <p class="tips-lede">The analyzer is more accurate the better your clip is framed. None of these are required, but each one meaningfully improves the score.</p>
+          <div class="tips-grid">
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">📏</span><strong>Camera at hip height</strong></div>
+              <p>Mount the phone at roughly the player's hip level, not down at ice level or up in the stands. A hip-height camera makes joint angles read true; an extreme up- or down-angle warps every measurement.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">🔄</span><strong>True side-on</strong></div>
+              <p>Stand perpendicular to where the puck will go — not behind, not in front, not at a diagonal. Even 20° off-axis quietly inflates rotation scores and squashes follow-through height.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">📐</span><strong>Full body in frame</strong></div>
+              <p>Skates to head, with ~10% padding on every side, for the whole shot (load → follow-through). If the stick or wrists leave the frame mid-shot, follow-through can’t be scored.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">🎥</span><strong>1080p · 60 fps</strong></div>
+              <p>If your phone can do 1080p at 60 fps, use it. The release-timing metric depends on frame rate — 30 fps caps timing resolution at ~33 ms.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">💡</span><strong>Even light, no silhouette</strong></div>
+              <p>Avoid heavy back-light (window or rink lamps directly behind the player). Pose detection drops landmarks when limbs blur into a dark silhouette.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">✂️</span><strong>One shot per clip</strong></div>
+              <p>Trim to the single attempt — load through follow-through is enough. Extra footage slows the phase detector and makes "load" / "release" picks less reliable.</p>
+            </div>
+            <div class="tip">
+              <div class="tip-head"><span class="tip-icon">🧍</span><strong>Just one player</strong></div>
+              <p>If a teammate skates through the frame the pose tracker may latch onto the wrong person mid-shot. Pause the recording until you have a clear lane.</p>
+            </div>
+          </div>
+          <p class="tips-foot">A coloured quality banner at the top of the results page will call out anything we couldn’t measure on this particular clip.</p>
+        </div>
+      </details>
     </section>
 
     <!-- Progress -->

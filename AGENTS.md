@@ -69,6 +69,27 @@ only large local asset (gitignored).
    shows a runway scene where the vaulter's `left` position is driven by a
    `--pct` custom property set by `setProgress()`. Both respect
    `prefers-reduced-motion`.
+8. **Joint angles use MediaPipe `pose_world_landmarks`, not image
+   coordinates** — `backend/pose.py::run_pose_detection` captures both the
+   image-space landmarks (`x, y, z, v`) AND the metric world landmarks
+   (`wx, wy, wz`, hip-centred meters) on every frame, and EMA-smooths both.
+   `angle_3pts_3d()` computes joint angles from `wx/wy/wz`, so the angle at
+   a joint is rotation-invariant w.r.t. the camera (a slightly off-axis
+   camera no longer flattens a knee bend). `_measure_knee_bend` and
+   `_measure_rotation_angle` use the world path (rotation falls back to
+   image+z via `_pt3` if world coords are missing for legacy data). The
+   original 2D `angle_3pts` is kept for follow-through height, head
+   stability, release timing, and weight transfer — those genuinely *want*
+   image-plane measurements. If you add a new joint-angle metric, default to
+   `angle_3pts_3d`. If you add a new vertical-lean metric, **do not** use
+   world Y without first verifying the orientation convention against a
+   sample clip — image Y is safer until then.
+9. **Filming-tips card is plain `<details>`** — the upload-screen filming
+   guidance is a `<details id="filmingTips" class="tips-card">` (no JS).
+   `.tips-card` lives at the bottom of `style.css` and shares the same
+   variable palette as the rest of the surface (`--surface`, `--border`,
+   `--radius`, `--text`, `--muted`). Update both the README’s “How to film a
+   good clip” section and this card together — they should never disagree.
 
 ## Hot files
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from pose import angle_3pts
+from pose import angle_3pts, angle_3pts_3d
 
 
 # ── Visibility / quality thresholds ──────────────────────────────────────────
@@ -82,6 +82,18 @@ def _pt3(lm: dict, key: str) -> np.ndarray | None:
     if not p or p.get("v", 0) < VIS_THRESH:
         return None
     return np.array([p["x"], p["y"], p.get("z", 0.0)])
+
+
+def _pt3w(lm: dict, key: str) -> np.ndarray | None:
+    """Return MediaPipe **world** coords [wx, wy, wz] in meters (hip-centred)
+    for a landmark if visible enough and world coords are present, else None.
+
+    Use for any direction / rotation computation that should be camera-pose
+    invariant (joint rotations around the body's own axes)."""
+    p = lm.get(key)
+    if not p or p.get("v", 0) < VIS_THRESH or "wx" not in p:
+        return None
+    return np.array([p["wx"], p["wy"], p["wz"]])
 
 
 def _angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
@@ -229,18 +241,20 @@ def _detect_phases(frames: list[dict], dom: str | None, fps: float) -> dict:
 # Each returns (value_or_None, score_or_None, reason_if_unmeasured)
 
 def _measure_knee_bend(frames, dom, phases):
-    """Knee angle at load (degrees). Smaller = deeper bend. Ideal 80–100°."""
+    """Knee angle at load (degrees). Smaller = deeper bend. Ideal 80–100°.
+
+    Computed from MediaPipe **world** landmarks (hip-centred meters) so the
+    angle is the true joint angle rather than its projection in the image
+    plane — robust to camera yaw / tilt."""
     if dom is None or phases["load"] is None:
         return None, None, "Couldn't find the load phase"
     angles = []
     for f in frames:
         lm = f["landmarks"]
         if not lm: continue
-        hip = _pt3(lm, f"{dom}_hip"); knee = _pt3(lm, f"{dom}_knee"); ankle = _pt3(lm, f"{dom}_ankle")
-        if hip is None or knee is None or ankle is None: continue
-        angles.append(angle_3pts({"x":hip[0],"y":hip[1]},
-                                 {"x":knee[0],"y":knee[1]},
-                                 {"x":ankle[0],"y":ankle[1]}))
+        hip = lm.get(f"{dom}_hip"); knee = lm.get(f"{dom}_knee"); ankle = lm.get(f"{dom}_ankle")
+        if not (hip and knee and ankle): continue
+        angles.append(angle_3pts_3d(hip, knee, ankle))
     coverage = len(angles) / max(1, len(frames))
     if coverage < MIN_VISIBLE_FRACTION:
         return None, None, f"Knees only visible in {int(coverage*100)}% of frames"
@@ -261,8 +275,10 @@ def _measure_rotation_angle(frames, side_a: str, side_b: str, label: str,
     analyser from inflating the value with pre-stance jitter or follow-through
     over-rotation \u2014 we measure the rotation that actually powered the shot.
 
-    Uses 3D (MediaPipe z-axis) so a player just sliding laterally without
-    twisting will (correctly) score low.
+    Uses MediaPipe **world** landmarks (hip-centred meters) when available so
+    the swept angle is the true 3D rotation around the body's vertical axis
+    rather than the projection onto the camera plane. Falls back to image+z
+    coords for legacy data.
     """
     # Pick the measurement window
     start_i = (phases or {}).get("load")
@@ -276,7 +292,8 @@ def _measure_rotation_angle(frames, side_a: str, side_b: str, label: str,
     for f in window:
         lm = f["landmarks"]
         if not lm: continue
-        a = _pt3(lm, side_a); b = _pt3(lm, side_b)
+        a = _pt3w(lm, side_a) if _pt3w(lm, side_a) is not None else _pt3(lm, side_a)
+        b = _pt3w(lm, side_b) if _pt3w(lm, side_b) is not None else _pt3(lm, side_b)
         if a is None or b is None: continue
         v = b - a
         if np.linalg.norm(v) < 1e-4: continue

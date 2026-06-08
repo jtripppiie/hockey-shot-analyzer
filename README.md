@@ -87,11 +87,22 @@ Drop in a video of a hockey shot, or paste a YouTube link. Wait 10–30 seconds.
 The app will tell you when a clip is bad, but here's how to get full results every time:
 
 - ✅ **Side-on:** phone perpendicular to where you're shooting (not behind you, not in front)
+- ✅ **Camera at hip height:** not down at ice level, not up in the stands — extreme up/down angles warp every joint reading
 - ✅ **Whole body in the picture:** head to skates, with a bit of space around you
 - ✅ **Just one player:** no teammates skating through the shot
 - ✅ **One shot per clip:** trim it down — load through follow-through is enough
 - ✅ **Good light:** even rink lights or daylight, no silhouettes
 - ✅ **Best quality:** 1080p at 60 fps if your phone can do it (720p at 30 fps is fine too)
+
+Slightly off-axis is now much more forgiving than it used to be: as of the
+3D-joint-angle update, joint angles (knee bend, body rotation) are computed
+from MediaPipe's metric **world** coordinates rather than from the 2D image
+projection, so a camera that's 10–20° off true side-on no longer flattens
+the knee bend or inflates the rotation score. A true side-on shot is still
+ideal, but it isn't make-or-break the way it once was.
+
+The **🎥 Tips for the best results** card on the upload screen has the
+same list with a bit more detail per item.
 
 ---
 

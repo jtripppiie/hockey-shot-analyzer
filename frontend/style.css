@@ -899,3 +899,71 @@ tr:hover td { background: var(--surface2); }
   background: #0b0e14;
 }
 .frame-preview.hidden { display: none; }
+
+/* ── Filming-tips collapsible card on the upload screen ────────────── */
+.tips-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius, 12px);
+  padding: 14px 20px;
+  margin-top: 24px;
+}
+.tips-card > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--text, #111);
+  user-select: none;
+}
+.tips-card > summary::-webkit-details-marker { display: none; }
+.tips-card .tips-icon { font-size: 1.15rem; }
+.tips-card .tips-title { flex: 1; }
+.tips-card .tips-hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted, #6b7280);
+}
+.tips-card[open] .tips-hint::before { content: "▴ "; }
+.tips-card:not([open]) .tips-hint::before { content: "▾ "; }
+.tips-body { padding-top: 12px; }
+.tips-lede {
+  margin: 0 0 14px;
+  color: var(--muted, #6b7280);
+  font-size: 0.9rem;
+}
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.tips-grid .tip {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.015);
+}
+.tips-grid .tip-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.92rem;
+}
+.tips-grid .tip-icon { font-size: 1.05rem; }
+.tips-grid .tip p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted, #6b7280);
+}
+.tips-foot {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+  font-style: italic;
+}
+@media (max-width: 700px) {
+  .tips-grid { grid-template-columns: 1fr; }
+}
+

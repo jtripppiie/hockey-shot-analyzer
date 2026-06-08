@@ -13,10 +13,10 @@
 
   <main>
 
-    <!-- ─────────────────────────  UPLOAD SCREEN (dark)  ───────────────────── -->
-    <section id="uploadSection" class="screen screen-dark">
+    <!-- ─────────────────────────  UPLOAD SCREEN (light)  ──────────────────── -->
+    <section id="uploadSection" class="screen screen-light">
 
-      <header class="topbar topbar-dark">
+      <header class="topbar topbar-light">
         <div class="topbar-brand">
           <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
             <!-- Hockey stick + puck mark -->
@@ -26,51 +26,14 @@
           <span class="brand-text">Hockey Shot Analyzer</span>
         </div>
         <div class="topbar-actions">
-          <button id="historyBtn" class="btn-ghost-dark" onclick="showHistory()">History</button>
+          <button id="historyBtn" class="btn-ghost" onclick="showHistory()">History</button>
         </div>
       </header>
 
       <!-- HERO -->
       <div class="hero">
 
-        <div class="hero-art" aria-hidden="true">
-          <!-- Background image (real photo silhouette) is set in CSS.
-               If /static/assets/hockey-player.png is missing, this inline SVG
-               renders as a fallback so the hero never looks broken. -->
-          <svg class="hero-art-svg" viewBox="0 0 420 540" xmlns="http://www.w3.org/2000/svg">
-            <!-- Stick: shaft + blade (curved down-right) -->
-            <path d="M 80 60 L 360 360" stroke="#0F172A" stroke-width="14" stroke-linecap="round"/>
-            <path d="M 360 360 Q 380 380 410 372" stroke="#0F172A" stroke-width="14" stroke-linecap="round" fill="none"/>
-            <!-- Top (back) hand grip -->
-            <circle cx="100" cy="80" r="16" fill="#0F172A"/>
-            <!-- Lower hand grip on shaft -->
-            <circle cx="200" cy="180" r="16" fill="#0F172A"/>
-            <!-- Helmet -->
-            <ellipse cx="178" cy="120" rx="34" ry="32" fill="#0F172A"/>
-            <!-- Cage / visor hint -->
-            <rect x="148" y="125" width="60" height="14" rx="3" fill="#0F172A" opacity="0.85"/>
-            <!-- Body — leaning forward into the shot -->
-            <path d="M 152 148 L 220 152 L 260 280 L 156 270 Z" fill="#0F172A"/>
-            <!-- Back arm (driving stick) -->
-            <path d="M 158 160 L 100 80 L 116 64 L 178 148 Z" fill="#0F172A"/>
-            <!-- Front arm (lower on shaft) -->
-            <path d="M 216 172 L 200 184 L 188 168 L 204 156 Z" fill="#0F172A"/>
-            <!-- Pants / hip — broad block -->
-            <path d="M 156 270 L 268 280 L 280 348 L 152 340 Z" fill="#0F172A"/>
-            <!-- Back leg (planted, bent) -->
-            <path d="M 168 340 L 134 432 L 168 444 L 200 350 Z" fill="#0F172A"/>
-            <!-- Front leg (stride forward) -->
-            <path d="M 252 340 L 304 430 L 340 422 L 286 342 Z" fill="#0F172A"/>
-            <!-- Skate boots -->
-            <ellipse cx="156" cy="446" rx="32" ry="8" fill="#0F172A"/>
-            <ellipse cx="324" cy="424" rx="32" ry="8" fill="#0F172A"/>
-            <!-- Skate blades -->
-            <rect x="128" y="452" width="60" height="3" rx="1" fill="#0F172A"/>
-            <rect x="296" y="430" width="60" height="3" rx="1" fill="#0F172A"/>
-            <!-- Puck (in front of blade) -->
-            <ellipse cx="408" cy="386" rx="14" ry="6" fill="#DC2626"/>
-          </svg>
-        </div>
+        <div class="hero-art" aria-hidden="true"></div>
 
         <div class="hero-body">
 
@@ -110,7 +73,7 @@
                 </label>
               </div>
               <button class="btn-primary btn-block" type="button" onclick="submitYouTube()">Analyze Shot</button>
-              <p class="hint hint-dark">Time format: <code>SS</code> &middot; <code>MM:SS</code> &middot; <code>HH:MM:SS</code> &middot; max 60 s</p>
+              <p class="hint">Time format: <code>SS</code> &middot; <code>MM:SS</code> &middot; <code>HH:MM:SS</code> &middot; max 60 s</p>
             </div>
           </div>
 
@@ -184,8 +147,8 @@
     </section>
 
     <!-- Progress -->
-    <section id="progressSection" class="hidden screen screen-dark">
-      <header class="topbar topbar-dark">
+    <section id="progressSection" class="hidden screen screen-light">
+      <header class="topbar topbar-light">
         <div class="topbar-brand">
           <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
             <path d="M14 16 L62 56 L72 48" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -197,40 +160,6 @@
       <div class="progress-card">
         <h2 id="progressMsg">Uploading clip…</h2>
         <p>Detecting landmarks and computing your shot score</p>
-
-        <div class="scene scene-hockey" id="progressScene" aria-hidden="true">
-          <div class="scene-sky"></div>
-          <div class="scene-runway"></div>
-          <div class="scene-runway-lines"></div>
-          <div class="scene-pit">
-            <div class="scene-bar"></div>
-            <div class="scene-stand scene-stand-left"></div>
-            <div class="scene-stand scene-stand-right"></div>
-          </div>
-          <div class="scene-character">
-            <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
-              <!-- Stick -->
-              <line x1="40" y1="50" x2="76" y2="72" stroke="#92400e" stroke-width="3.5" stroke-linecap="round"/>
-              <rect x="71" y="69" width="11" height="5" rx="1" fill="#111" transform="rotate(28 76 72)"/>
-              <!-- Helmet -->
-              <path d="M22 18 Q22 7 32 7 Q42 7 42 18 L42 24 L22 24 Z" fill="#1e3a8a"/>
-              <circle cx="32" cy="22" r="6" fill="#fcd5b4"/>
-              <!-- Jersey -->
-              <path d="M20 26 L44 26 L48 58 L42 64 L22 64 L16 58 Z" fill="#dc2626"/>
-              <path d="M44 30 L40 50 L40 50" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
-              <path d="M22 30 L18 50 L32 54" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
-              <!-- Legs -->
-              <line x1="28" y1="64" x2="20" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
-              <line x1="38" y1="64" x2="46" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
-              <ellipse cx="18" cy="94" rx="7" ry="2" fill="#222"/>
-              <ellipse cx="48" cy="94" rx="7" ry="2" fill="#222"/>
-            </svg>
-          </div>
-          <div class="scene-puck puck-1" aria-hidden="true"></div>
-          <div class="scene-puck puck-2" aria-hidden="true"></div>
-          <div class="scene-puck puck-3" aria-hidden="true"></div>
-        </div>
-
         <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
       </div>
     </section>

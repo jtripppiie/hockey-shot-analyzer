@@ -93,19 +93,15 @@ main { width: 100%; }
   width: 100%;
   padding: 0 24px 80px;
 }
+/* All screens share the same light surface now (upload, progress, results).
+   .screen-dark is kept as an alias for older builds; do not use in new HTML. */
+.screen-light,
 .screen-dark {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(37, 99, 235, 0.18), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(245, 158, 11, 0.10), transparent 60%),
-    var(--d-bg);
-  color: var(--d-text);
-}
-.screen-light {
   background: var(--l-bg);
   color: var(--l-text);
 }
 
-/* ─── Topbar (shared between dark + light) ──────────────────────────────── */
+/* ─── Topbar ────────────────────────────────────────────────────────────── */
 .topbar {
   max-width: 1100px;
   margin: 0 auto;
@@ -120,9 +116,10 @@ main { width: 100%; }
   font-family: var(--font-head);
   font-weight: 600;
   font-size: 17px;
+  color: var(--l-text);
 }
-.brand-mark { width: 36px; height: 36px; flex: 0 0 36px; }
-.topbar-dark .brand-mark { color: #E2E8F0; }
+.brand-mark { width: 34px; height: 34px; flex: 0 0 34px; color: var(--l-text); }
+.topbar-dark .brand-mark,
 .topbar-light .brand-mark { color: var(--l-text); }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 
@@ -140,31 +137,20 @@ main { width: 100%; }
 }
 .hero-art {
   display: flex; justify-content: center; align-items: center;
-  min-height: 360px;
-  /* If /static/assets/hockey-player.png exists it becomes the silhouette;
-     otherwise the inline .hero-art-svg fallback fills the slot. */
+  min-height: 320px;
   background-image: url("/static/assets/hockey-player.png");
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
-  /* Black silhouette → light silhouette on dark navy, keeping any warm accent.
-     invert flips black↔white; hue-rotate swings the inverted blue back to warm. */
-  filter:
-    invert(1) hue-rotate(180deg)
-    drop-shadow(0 24px 40px rgba(8, 17, 31, 0.55));
+  filter: drop-shadow(0 18px 36px rgba(15, 23, 42, 0.18));
 }
-/* Inline SVG fallback — visible whenever there's no real image (and styled
-   so the inverted filter on the parent turns it into a clean white silhouette). */
-.hero-art-svg {
-  display: block;
-  width: 100%; max-width: 360px; height: auto;
-}
+.hero-art-svg,
 .hero-art-img { display: none; }
 
 .hero-body { max-width: 720px; }
-.hero-title { color: #FFFFFF; margin-bottom: 14px; }
+.hero-title { color: var(--l-text); margin-bottom: 14px; }
 .hero-sub {
-  color: var(--d-text-mute);
+  color: var(--l-text-mute);
   font-size: 17px;
   line-height: 1.55;
   margin-bottom: 28px;
@@ -173,18 +159,18 @@ main { width: 100%; }
 
 /* ─── Upload zone (combined drop + youtube) ─────────────────────────────── */
 .upload-zone {
-  background: var(--d-surface);
-  border: 1px solid var(--d-border);
+  background: var(--l-surface);
+  border: 1px solid var(--l-border);
   border-radius: var(--radius-lg);
   padding: 26px;
   display: grid;
   gap: 22px;
   transition: border-color 0.15s ease, background 0.15s ease;
-  box-shadow: var(--shadow-hero);
+  box-shadow: var(--shadow-card);
 }
 .upload-zone.dragover {
   border-color: var(--blue);
-  background: var(--d-elev);
+  background: var(--l-elev);
 }
 .upload-zone-local {
   display: grid;
@@ -192,47 +178,47 @@ main { width: 100%; }
   align-items: center;
   gap: 18px;
   padding: 22px;
-  border: 1.5px dashed var(--d-border-strong);
+  border: 1.5px dashed var(--l-border-strong);
   border-radius: var(--radius);
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.upload-zone-local:hover { border-color: var(--blue); background: rgba(37,99,235,0.06); }
+.upload-zone-local:hover { border-color: var(--blue); background: rgba(37,99,235,0.05); }
 .upload-zone-glyph {
   width: 56px; height: 56px;
   border-radius: 14px;
-  background: rgba(37,99,235,0.18);
-  color: #93C5FD;
+  background: rgba(37,99,235,0.12);
+  color: var(--blue);
   display: grid; place-items: center;
 }
 .upload-zone-glyph svg { width: 28px; height: 28px; }
 .upload-zone-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.upload-zone-text strong { color: #FFFFFF; font-size: 17px; font-weight: 600; }
-.upload-zone-text span  { color: var(--d-text-mute); font-size: 13.5px; }
+.upload-zone-text strong { color: var(--l-text); font-size: 17px; font-weight: 600; }
+.upload-zone-text span  { color: var(--l-text-mute); font-size: 13.5px; }
 
 .upload-zone-or {
   display: flex; align-items: center; gap: 14px;
-  color: var(--d-hint);
+  color: var(--l-hint);
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 .upload-zone-or::before,
 .upload-zone-or::after {
-  content: ""; flex: 1; height: 1px; background: var(--d-border);
+  content: ""; flex: 1; height: 1px; background: var(--l-border);
 }
 
 .upload-zone-youtube { display: grid; gap: 14px; }
 .yt-field { display: grid; gap: 6px; }
-.yt-field > span { color: var(--d-text-mute); font-size: 13.5px; font-weight: 500; }
+.yt-field > span { color: var(--l-text-mute); font-size: 13.5px; font-weight: 500; }
 .upload-zone-youtube input[type="url"],
 .upload-zone-youtube input[type="text"] {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--d-border-strong);
+  border: 1px solid var(--l-border-strong);
   border-radius: 10px;
-  background: var(--d-bg);
-  color: var(--d-text);
+  background: var(--l-surface);
+  color: var(--l-text);
   font: inherit;
   font-size: 15px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -240,7 +226,7 @@ main { width: 100%; }
 .upload-zone-youtube input:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 .yt-times {
   display: grid;
@@ -248,8 +234,8 @@ main { width: 100%; }
   gap: 12px;
 }
 .yt-times label { display: grid; gap: 6px; }
-.yt-times label > span { color: var(--d-text-mute); font-size: 13px; }
-.yt-times em { font-style: normal; color: var(--d-hint); font-weight: 400; }
+.yt-times label > span { color: var(--l-text-mute); font-size: 13px; }
+.yt-times em { font-style: normal; color: var(--l-hint); font-weight: 400; }
 
 /* ─── Hero meta (best results / you'll receive) ─────────────────────────── */
 .hero-meta {
@@ -262,7 +248,7 @@ main { width: 100%; }
   .hero-meta { grid-template-columns: 1fr 1fr; gap: 24px; }
 }
 .hero-meta-block h4 {
-  color: var(--d-text-mute);
+  color: var(--l-text-mute);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -275,7 +261,7 @@ main { width: 100%; }
   gap: 6px;
 }
 .hero-meta-block li {
-  color: var(--d-text);
+  color: var(--l-text);
   font-size: 14.5px;
   padding-left: 22px;
   position: relative;
@@ -335,45 +321,46 @@ main { width: 100%; }
 }
 .btn-danger:hover { filter: brightness(1.05); }
 
-/* ─── Collapsibles (tips + ctx) on dark hero ────────────────────────────── */
-.screen-dark .tips-card,
-.screen-dark .ctx-card {
+/* ─── Collapsibles (tips + ctx) on hero ─────────────────────────────────── */
+.tips-card,
+.ctx-card {
   max-width: 1100px;
   margin: 18px auto 0;
-  background: var(--d-surface);
-  border: 1px solid var(--d-border);
+  background: var(--l-surface);
+  border: 1px solid var(--l-border);
   border-radius: var(--radius);
   padding: 18px 22px;
-  color: var(--d-text);
+  color: var(--l-text);
+  box-shadow: var(--shadow-card);
 }
-.screen-dark .tips-card > summary,
-.screen-dark .ctx-card > summary {
+.tips-card > summary,
+.ctx-card > summary {
   cursor: pointer;
   list-style: none;
   display: flex; align-items: center; gap: 10px;
   font-family: var(--font-head);
   font-weight: 600;
-  color: var(--d-text);
+  color: var(--l-text);
   user-select: none;
   font-size: 16px;
 }
-.screen-dark .tips-card > summary::-webkit-details-marker,
-.screen-dark .ctx-card > summary::-webkit-details-marker { display: none; }
+.tips-card > summary::-webkit-details-marker,
+.ctx-card > summary::-webkit-details-marker { display: none; }
 .tips-icon, .ctx-summary-text { display: inline-flex; align-items: center; gap: 8px; }
 .tips-title { flex: 1; }
-.tips-hint, .ctx-summary-chevron { color: var(--d-text-mute); font-weight: 400; font-size: 13px; }
+.tips-hint, .ctx-summary-chevron { color: var(--l-text-mute); font-weight: 400; font-size: 13px; }
 .tips-card[open] .tips-hint::before { content: "▴ "; }
 .tips-card:not([open]) .tips-hint::before { content: "▾ "; }
 .tips-body { padding-top: 14px; }
-.tips-lede { margin: 0 0 14px; color: var(--d-text-mute); font-size: 14px; }
+.tips-lede { margin: 0 0 14px; color: var(--l-text-mute); font-size: 14px; }
 .tips-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px 16px;
 }
 .tips-grid .tip {
-  background: var(--d-elev);
-  border: 1px solid var(--d-border);
+  background: var(--l-elev);
+  border: 1px solid var(--l-border);
   border-radius: 12px;
   padding: 12px 14px;
 }
@@ -381,25 +368,25 @@ main { width: 100%; }
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 4px;
   font-size: 14px;
-  color: var(--d-text);
+  color: var(--l-text);
 }
 .tips-grid .tip p {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--d-text-mute);
+  color: var(--l-text-mute);
 }
 .tips-foot {
   margin: 14px 0 0;
   font-size: 12.5px;
-  color: var(--d-text-mute);
+  color: var(--l-text-mute);
   font-style: italic;
 }
 
-.ctx-summary-text .hint { color: var(--d-text-mute); font-weight: 400; }
+.ctx-summary-text .hint { color: var(--l-text-mute); font-weight: 400; }
 .ctx-summary-chevron { font-weight: 400; }
 .ctx-card[open] .ctx-summary-chevron { transform: rotate(180deg); display: inline-block; }
-.ctx-blurb { margin: 12px 0 16px; color: var(--d-text-mute); font-size: 14px; }
+.ctx-blurb { margin: 12px 0 16px; color: var(--l-text-mute); font-size: 14px; }
 .ctx-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -408,11 +395,11 @@ main { width: 100%; }
 .ctx-field { display: flex; flex-direction: column; gap: 6px; }
 .ctx-field-wide { grid-column: 1 / -1; }
 .ctx-field > span {
-  color: var(--d-text-mute);
+  color: var(--l-text-mute);
   font-size: 13px;
   font-weight: 500;
 }
-.ctx-field .hint { font-size: 11.5px; color: var(--d-hint); }
+.ctx-field .hint { font-size: 11.5px; color: var(--l-hint); }
 .ctx-row {
   display: flex; align-items: center; gap: 8px;
 }
@@ -420,15 +407,15 @@ main { width: 100%; }
   flex: 1;
   min-width: 0;
   padding: 9px 11px;
-  border: 1px solid var(--d-border-strong);
+  border: 1px solid var(--l-border-strong);
   border-radius: 9px;
-  background: var(--d-bg);
-  color: var(--d-text);
+  background: var(--l-surface);
+  color: var(--l-text);
   font: inherit; font-size: 14px;
 }
 .ctx-row input:focus, .ctx-row select:focus {
   outline: none; border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 .ctx-actions {
   margin-top: 14px;
@@ -437,71 +424,77 @@ main { width: 100%; }
 
 /* ─── Progress screen ───────────────────────────────────────────────────── */
 .progress-card {
-  max-width: 720px;
-  margin: 48px auto 0;
-  background: var(--d-surface);
-  border: 1px solid var(--d-border);
+  max-width: 640px;
+  margin: 64px auto 0;
+  background: var(--l-surface);
+  border: 1px solid var(--l-border);
   border-radius: var(--radius-lg);
   padding: 36px 28px;
   text-align: center;
-  box-shadow: var(--shadow-hero);
+  box-shadow: var(--shadow-card);
 }
-.progress-card h2 { color: #FFFFFF; margin-bottom: 8px; }
-.progress-card > p { color: var(--d-text-mute); margin-bottom: 24px; }
-
-.scene { position: relative; width: 100%; height: 160px; margin: 8px 0 18px; border-radius: 12px; overflow: hidden; background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%); }
-.scene-sky { position: absolute; inset: 0 0 60% 0; background: linear-gradient(180deg, #1E293B, #334155); }
-.scene-runway { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; background: linear-gradient(180deg, #BAE6FD 0%, #7DD3FC 100%); }   /* ice */
-.scene-runway-lines { position: absolute; left: 0; right: 0; bottom: 24%; height: 2px; background: var(--red); opacity: 0.55; }                       /* centre red line */
-.scene-pit { position: absolute; right: 8%; bottom: 14%; width: 14%; height: 38%; }
-.scene-stand { position: absolute; bottom: 0; width: 4px; background: #DC2626; height: 100%; }                                                       /* goal posts */
-.scene-stand-left { left: 0; }
-.scene-stand-right { right: 0; }
-.scene-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--red); }                                                  /* crossbar */
-.scene-character {
-  position: absolute; bottom: 14%; left: 4%;
-  width: 100px; height: 80px;
-  animation: vault-run 3s linear infinite;
-}
-@keyframes vault-run {
-  0%   { left: 4%; }
-  100% { left: 82%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scene-character { animation: none; }
-}
-
-/* Pucks zipping toward the net */
-.scene-puck {
-  position: absolute;
-  width: 10px; height: 4px;
-  background: #0F172A;
-  border-radius: 2px;
-  bottom: 28%;
-  left: 18%;
-  animation: puck-fly 1.4s linear infinite;
-}
-.puck-1 { animation-delay: 0s; }
-.puck-2 { animation-delay: 0.45s; }
-.puck-3 { animation-delay: 0.9s; }
-@keyframes puck-fly {
-  0%   { left: 18%; opacity: 0; transform: translateY(0); }
-  15%  { opacity: 1; }
-  100% { left: 86%; opacity: 0; transform: translateY(-12px); }
-}
+.progress-card h2 { color: var(--l-text); margin-bottom: 8px; }
+.progress-card > p { color: var(--l-text-mute); margin-bottom: 24px; }
 
 .progress-bar {
   width: 100%; height: 8px;
-  background: var(--d-bg);
+  background: var(--l-elev);
+  border: 1px solid var(--l-border);
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 18px;
+  margin-top: 8px;
 }
 .progress-fill {
   width: 0%; height: 100%;
   background: linear-gradient(90deg, var(--blue), #60A5FA);
   transition: width 0.45s ease;
   border-radius: 999px;
+}
+
+/* ─── Mobile responsive (apply to all hero/progress on small screens) ───── */
+@media (max-width: 720px) {
+  .screen { padding: 0 16px 64px; }
+  .topbar { padding: 16px 0; }
+  .topbar-brand { font-size: 14px; gap: 8px; }
+  .brand-mark { width: 26px; height: 26px; flex: 0 0 26px; }
+  .topbar-actions .btn-ghost,
+  .topbar-actions .btn-ghost-dark { padding: 7px 12px; font-size: 13px; }
+
+  .hero { gap: 18px; padding: 8px 0 16px; margin-top: 4px; }
+  .hero-art { min-height: 180px; }
+  .hero-title { font-size: 30px; line-height: 1.1; margin-bottom: 10px; }
+  .hero-sub { font-size: 15px; margin-bottom: 18px; }
+
+  .upload-zone { padding: 18px; gap: 16px; border-radius: 16px; }
+  .upload-zone-local {
+    grid-template-columns: 44px 1fr;
+    grid-template-rows: auto auto;
+    gap: 12px 14px;
+    padding: 16px;
+  }
+  .upload-zone-glyph { width: 44px; height: 44px; border-radius: 11px; }
+  .upload-zone-glyph svg { width: 22px; height: 22px; }
+  .upload-zone-text strong { font-size: 15px; }
+  .upload-zone-text span  { font-size: 12.5px; }
+  .upload-zone-local .btn-primary {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 12px 18px;
+  }
+
+  .yt-times { gap: 10px; }
+  .upload-zone-youtube input[type="url"],
+  .upload-zone-youtube input[type="text"] { padding: 11px 12px; font-size: 14.5px; }
+
+  .hero-meta { margin-top: 18px; gap: 14px; }
+
+  .tips-card, .ctx-card { padding: 14px 16px; margin-top: 12px; }
+  .tips-card > summary, .ctx-card > summary { font-size: 14.5px; }
+  .tips-grid { grid-template-columns: 1fr; gap: 10px; }
+
+  .progress-card { margin-top: 32px; padding: 24px 18px; border-radius: 16px; }
+  .progress-card h2 { font-size: 22px; }
+  .progress-card > p { font-size: 14px; margin-bottom: 16px; }
 }
 
 /* ╔═══════════════════════════════════════════════════════════════════════╗

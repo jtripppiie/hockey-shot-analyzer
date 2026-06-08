@@ -618,3 +618,154 @@ function resetUI() {
   v.load();
   showSection("uploadSection");
 }
+
+// ── Expert Feedback Mode (desktop only) ──────────────────────────────────────
+// Toggle: Ctrl+Shift+F  (or Cmd+Shift+F on Mac).  Persists in localStorage.
+// The form is also CSS-hidden on touch/narrow devices — see style.css media query.
+
+const FB_CHECKBOXES = [
+  ["head_dropped",              "Head dropped"],
+  ["good_head_position",        "Good head position"],
+  ["knee_drive_strong",         "Knee drive was strong"],
+  ["knee_drive_weak",           "Knee drive was weak"],
+  ["weight_transfer_good",      "Weight transfer was good"],
+  ["weight_transfer_weak",      "Weight transfer was weak"],
+  ["follow_through_good",       "Follow-through was good"],
+  ["follow_through_short",      "Follow-through was short"],
+  ["blade_puck_contact_good",   "Stick/puck contact looked good"],
+  ["balance_issue",             "Balance issue"],
+  ["camera_angle_unreliable",   "Camera angle made analysis unreliable"],
+  ["ai_score_too_high",         "AI score seemed too high"],
+  ["ai_score_too_low",          "AI score seemed too low"],
+];
+
+function _isDesktopExpertCapable() {
+  // Same rule as the CSS guard, so JS never tries to show a hidden form.
+  if (!window.matchMedia) return true;
+  return window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 1024px)").matches;
+}
+
+function expertModeEnabled() {
+  return localStorage.getItem("expertMode") === "1";
+}
+
+function setExpertMode(on) {
+  if (on && !_isDesktopExpertCapable()) {
+    alert("Expert Feedback Mode is desktop-only (needs a keyboard + larger screen).");
+    return;
+  }
+  if (on) localStorage.setItem("expertMode", "1");
+  else localStorage.removeItem("expertMode");
+  _refreshExpertVisibility();
+}
+
+function _refreshExpertVisibility() {
+  const on = expertModeEnabled() && _isDesktopExpertCapable();
+  document.getElementById("expertIndicator")?.classList.toggle("hidden", !on);
+  document.getElementById("expertPanel")?.classList.toggle("hidden", !on);
+  if (on && currentJob) _loadFeedbackHistory(currentJob.job_id);
+}
+
+function _buildFeedbackForm() {
+  const grid = document.getElementById("fbCheckGrid");
+  if (!grid || grid.dataset.built === "1") return;
+  grid.innerHTML = FB_CHECKBOXES.map(([key, label]) =>
+    `<label class='fb-check'><input type='checkbox' value='${key}'>${label}</label>`
+  ).join("");
+  grid.dataset.built = "1";
+
+  const slider = document.getElementById("fbScore");
+  const valEl = document.getElementById("fbScoreVal");
+  slider?.addEventListener("input", () => { valEl.textContent = slider.value; });
+}
+
+async function _loadFeedbackHistory(jobId) {
+  const wrap = document.getElementById("fbHistory");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  if (!jobId) return;
+  try {
+    const rows = await fetch(`/feedback/${jobId}`).then(r => r.json());
+    if (!rows.length) {
+      wrap.innerHTML = "<p class='muted small'>No feedback recorded for this clip yet.</p>";
+      return;
+    }
+    wrap.innerHTML = `<h4>Previous feedback for this clip (${rows.length})</h4>` +
+      rows.slice().reverse().map(r => `
+        <div class='fb-prev'>
+          <span class='fb-prev-when'>${r.timestamp || ""}</span>
+          <span class='fb-prev-by'>${(r.reviewer || "anonymous")}</span>
+          <span class='fb-prev-score'>AI ${r.ai_score ?? "—"} → Human ${r.human_score ?? "—"}</span>
+          <span class='fb-prev-label'>${(r.human_quality_label || "").replace(/_/g," ")}</span>
+          ${r.human_note ? `<div class='fb-prev-note'>${r.human_note.replace(/</g,"&lt;")}</div>` : ""}
+        </div>
+      `).join("");
+  } catch (e) { /* ignore */ }
+}
+
+async function submitFeedback() {
+  if (!currentJob || !currentJob.job_id) { alert("No analyzed clip in view."); return; }
+  const checks = Array.from(document.querySelectorAll("#fbCheckGrid input:checked")).map(c => c.value);
+  const payload = {
+    job_id: currentJob.job_id,
+    corrected_score: parseInt(document.getElementById("fbScore").value, 10),
+    quality_label: document.getElementById("fbQuality").value,
+    checkboxes: checks,
+    note: document.getElementById("fbNote").value,
+    reviewer: document.getElementById("fbReviewer").value,
+  };
+  const status = document.getElementById("fbStatus");
+  status.textContent = "Saving…"; status.style.color = "var(--muted)";
+  try {
+    const res = await fetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      status.textContent = "❌ " + (err.detail || res.statusText);
+      status.style.color = "#f85149";
+      return;
+    }
+    status.textContent = "✅ Saved";
+    status.style.color = "#3fb950";
+    // Clear checkboxes + note (keep score + reviewer for batch reviewing)
+    document.querySelectorAll("#fbCheckGrid input").forEach(c => c.checked = false);
+    document.getElementById("fbNote").value = "";
+    _loadFeedbackHistory(currentJob.job_id);
+    setTimeout(() => { status.textContent = ""; }, 4000);
+  } catch (e) {
+    status.textContent = "❌ " + e.message;
+    status.style.color = "#f85149";
+  }
+}
+
+function openPlayerReport() {
+  if (!currentJob?.job_id) return;
+  window.open(`/report/${currentJob.job_id}`, "_blank");
+}
+
+function openExpertReport() {
+  if (!currentJob?.job_id) return;
+  window.open(`/report/${currentJob.job_id}?expert=1`, "_blank");
+}
+
+// Keyboard shortcut + first-time setup
+window.addEventListener("DOMContentLoaded", () => {
+  _buildFeedbackForm();
+  _refreshExpertVisibility();
+});
+window.addEventListener("keydown", (e) => {
+  const isToggle = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "F" || e.key === "f");
+  if (!isToggle) return;
+  e.preventDefault();
+  setExpertMode(!expertModeEnabled());
+});
+
+// Refresh expert panel after each renderResults (hook into existing function)
+const _origRenderResults = renderResults;
+renderResults = function(data) {
+  _origRenderResults(data);
+  _refreshExpertVisibility();
+};

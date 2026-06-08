@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,11 +29,14 @@ from fastapi.staticfiles import StaticFiles
 from metrics import compute_metrics
 from overlay import extract_key_frame, render_overlay
 from pose import get_video_meta, run_pose_detection
+import feedback as feedback_mod
+from report import render_report
 
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
 HISTORY_CSV = BASE_DIR / "output" / "history.csv"
+FEEDBACK_LOG = BASE_DIR / "output" / "feedback_log.jsonl"
 FRONTEND_DIR = BASE_DIR / "frontend"
 
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -359,3 +362,49 @@ def _append_history(filename: str, result: dict, job_id: str):
             "timing":   s["timing"],
             **{k: m[k]["score"] for k in m},
         })
+
+
+# ── Expert Feedback Mode ──────────────────────────────────────────────────────
+@app.post("/feedback")
+async def save_feedback_endpoint(payload: dict = Body(...)):
+    """Append one expert-feedback entry to the JSONL log."""
+    try:
+        job_id = payload.get("job_id")
+        if not job_id:
+            raise HTTPException(400, "job_id required")
+        record = feedback_mod.save_feedback(
+            OUTPUT_DIR,
+            FEEDBACK_LOG,
+            job_id=job_id,
+            corrected_score=int(payload.get("corrected_score", 0)),
+            quality_label=str(payload.get("quality_label", "")),
+            checkboxes=list(payload.get("checkboxes", []) or []),
+            note=str(payload.get("note", "")),
+            reviewer=str(payload.get("reviewer", "")),
+        )
+        return JSONResponse({"ok": True, "feedback": record})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/feedback/{job_id}")
+def get_feedback(job_id: str):
+    return JSONResponse(feedback_mod.feedback_for_job(FEEDBACK_LOG, job_id))
+
+
+@app.get("/feedback")
+def list_feedback():
+    return JSONResponse(feedback_mod.all_feedback(FEEDBACK_LOG))
+
+
+@app.get("/report/{job_id}", response_class=HTMLResponse)
+def html_report(job_id: str, expert: int = 0):
+    """Printable HTML report. expert=1 includes the Expert Feedback section."""
+    job_file = OUTPUT_DIR / f"{job_id}_result.json"
+    if not job_file.exists():
+        raise HTTPException(404, "Job not found")
+    with open(job_file) as f:
+        result = json.load(f)
+    fb = feedback_mod.feedback_for_job(FEEDBACK_LOG, job_id) if expert else None
+    html = render_report(result, feedback=fb, expert=bool(expert))
+    return HTMLResponse(html)

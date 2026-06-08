@@ -14,6 +14,7 @@
       <h1>Hockey Shot Analyzer</h1>
       <p class="tagline">Upload your clip · See your skeleton · Improve your shot</p>
     </div>
+    <span id="expertIndicator" class="expert-indicator hidden">🧑‍🏫 EXPERT MODE</span>
     <button id="historyBtn" class="btn-ghost" onclick="showHistory()">📊 History</button>
   </header>
 
@@ -115,6 +116,57 @@
       <div id="coachStrengths" class="coach-block strengths"></div>
       <div id="coachFocus" class="coach-block focus"></div>
       <div id="coachDrills" class="coach-drills"></div>
+
+      <!-- ── EXPERT FEEDBACK (desktop-only, hidden by default) ── -->
+      <div id="expertPanel" class="expert-panel hidden">
+        <div class="expert-panel-head">
+          <h3>🧑‍🏫 Expert Feedback</h3>
+          <span class="expert-badge">EXPERT MODE — desktop only · Ctrl+Shift+F to toggle</span>
+        </div>
+        <p class="expert-intro">Privately record how this shot really looked. Your notes save to <code>output/feedback_log.jsonl</code> and are never shown to the player.</p>
+
+        <div class="expert-form">
+          <div class="expert-row">
+            <label class="expert-field">
+              <span>Reviewer name (optional)</span>
+              <input type="text" id="fbReviewer" placeholder="Coach Mike, Dad, etc." />
+            </label>
+            <label class="expert-field">
+              <span>Corrected overall score <strong id="fbScoreVal">75</strong>/100</span>
+              <input type="range" id="fbScore" min="0" max="100" value="75" />
+            </label>
+            <label class="expert-field">
+              <span>Shot quality</span>
+              <select id="fbQuality">
+                <option value="poor">Poor</option>
+                <option value="needs_work">Needs Work</option>
+                <option value="decent" selected>Decent</option>
+                <option value="good">Good</option>
+                <option value="excellent">Excellent</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="expert-checks">
+            <legend>What did you see? (check all that apply)</legend>
+            <div class="expert-checkgrid" id="fbCheckGrid"></div>
+          </fieldset>
+
+          <label class="expert-field expert-note">
+            <span>Coach notes — what the AI missed</span>
+            <textarea id="fbNote" rows="4" placeholder="e.g. AI marked weight transfer 'good' but back foot never left the ice. Camera was too far behind to see follow-through."></textarea>
+          </label>
+
+          <div class="expert-actions">
+            <button class="btn-primary" onclick="submitFeedback()">💾 Save feedback</button>
+            <button class="btn-ghost" onclick="openExpertReport()">📄 Open expert report (Print → PDF)</button>
+            <button class="btn-ghost" onclick="openPlayerReport()">📄 Open player report</button>
+            <span id="fbStatus" class="fb-status"></span>
+          </div>
+
+          <div id="fbHistory" class="fb-history"></div>
+        </div>
+      </div>
 
       <!-- Try another -->
       <div class="try-again">

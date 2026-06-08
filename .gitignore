@@ -28,3 +28,4 @@ Thumbs.db
 # Logs
 *.log
 nohup.out
+output/feedback_log.jsonl

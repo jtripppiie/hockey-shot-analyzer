@@ -113,6 +113,82 @@ Each one gets a score 0–100 and a grade: `great`, `good`, `ok`, `needs work`, 
 
 ---
 
+## 🧑‍🏫 Expert Feedback Mode (desktop only)
+
+A hidden mode that lets a coach, parent, or trainer **privately correct the AI's score** and record what really happened on the ice. The collected feedback is saved as clean training data so we can improve scoring rules — or train a better model — later. **The kid/player never sees any of this.**
+
+### How to turn it on
+
+On a desktop or laptop browser (with a real keyboard), press:
+
+**`Ctrl + Shift + F`** &nbsp;(or `⌘ + Shift + F` on Mac)
+
+You'll see a small orange `🧑‍🏫 EXPERT MODE` badge appear in the header, and an **Expert Feedback** panel will show up below the Coach's Report on every analyzed shot. Press the shortcut again to turn it off — the preference is remembered per-browser in `localStorage`.
+
+> **Desktop only by design.** The panel won't render on phones, tablets, or anything narrower than ~1024px / without a mouse. That's enforced both in JavaScript and CSS — even with "Request desktop site" on mobile, the form stays hidden.
+
+### What you fill in for each shot
+
+- **Corrected overall score** (0–100 slider)
+- **Shot quality**: Poor · Needs Work · Decent · Good · Excellent
+- **13 checkboxes** — head dropped, knee drive strong/weak, weight transfer good/weak, follow-through good/short, blade-puck contact, balance issue, camera angle made AI unreliable, AI score too high/low, etc.
+- **Coach notes** — a free-text box: *"what the AI missed"*
+- **Reviewer name** (optional, e.g. *Coach Mike*, *Dad*)
+
+### Where it saves
+
+Every entry appends one line to:
+
+```
+output/feedback_log.jsonl
+```
+
+JSONL means: **one JSON object per line**, append-only. Each entry includes the AI's full scores + metrics + the human correction + a `score_delta`, the video metadata (fps, resolution, duration), a unique `feedback_id`, a timestamp, and the app version. **The same clip can receive multiple feedback entries** (coach + parent + trainer) — nothing is ever overwritten.
+
+The file is `.gitignore`d so private feedback never ends up in your fork.
+
+### Two report styles
+
+Each analyzed clip can be exported as a printable HTML report (Ctrl+P → Save as PDF works on every browser):
+
+- **Player report** — `/report/{job_id}` &nbsp; AI score, sub-scores, shot breakdown, coaching tips. **No feedback shown.**
+- **Expert report** — `/report/{job_id}?expert=1` &nbsp; same plus all the Expert Feedback entries with AI-vs-human deltas and reviewer notes.
+
+The expert panel has buttons for both — just click them after a shot is analyzed.
+
+### What we DON'T do (yet)
+
+The model **does not retrain itself** from corrections. We collect clean data first, hand-curate it, then later use it to tune scoring weights or train a better model. One coach's opinion ≠ ground truth.
+
+### Inspect the data later
+
+```bash
+# Count entries
+wc -l output/feedback_log.jsonl
+
+# Show all corrections where the AI overshot by more than 15 points
+python3 -c "
+import json
+for line in open('output/feedback_log.jsonl'):
+    r = json.loads(line)
+    d = r.get('score_delta')
+    if d is not None and d < -15:
+        print(f'{r[\"clip_filename\"]:30}  AI={r[\"ai_score\"]:>3}  Human={r[\"human_score\"]:>3}  (delta {d:+d})  by {r[\"reviewer\"]}')
+"
+
+# Most-flagged AI failure modes
+python3 -c "
+import json, collections
+c = collections.Counter()
+for line in open('output/feedback_log.jsonl'):
+    c.update(json.loads(line)['human_checkboxes'])
+for k, n in c.most_common():
+    print(f'{n:4}  {k}')
+"
+```
+
+---
+
 ## Python libraries it installs
 
 `./run.sh` installs everything in `.venv/` automatically. If you're curious what's in there, it's listed in `requirements.txt`:
@@ -271,6 +347,8 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 | Every metric says "Needs a side-view clip" | Camera was facing you head-on. Re-film from the side. |
 | `Permission denied: ./run.sh` | Run `chmod +x run.sh share.sh` once. |
 | `git push` asks for a password | GitHub requires a **personal access token** instead of your password — make one at https://github.com/settings/tokens and paste it when prompted. |
+| `Ctrl+Shift+F` does nothing | You're on a touch device or a narrow window. Expert Feedback Mode is desktop-only (≥1024px width + a real keyboard/mouse) — see the Expert Feedback section above. |
+| Expert form vanishes after reload | It's remembered in `localStorage` per-browser. If you cleared site data, press the shortcut again. |
 
 ---
 
@@ -278,11 +356,17 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 
 ```
 backend/         FastAPI app, pose detection, biomechanics, overlay rendering
-  main.py        HTTP endpoints (/analyze, /analyze-youtube, /history)
+  main.py        HTTP endpoints (/analyze, /analyze-youtube, /history, /feedback, /report)
   pose.py        MediaPipe wrapper + smoothing
   metrics.py     Scoring math and coaching tips
   overlay.py     Skeleton drawing + H.264 re-encode
+  feedback.py    Expert Feedback Mode — JSONL append-only correction log
+  report.py      Printable HTML report (player + expert modes)
 frontend/        The web page (no build step — just HTML/CSS/JS)
+output/
+  history.csv          summary row per analyzed clip
+  feedback_log.jsonl   one line per expert feedback entry (gitignored)
+  {job_id}_*.{mp4,jpg,json}   overlay video, key frame, full result
 run.sh           One-click setup and launch (port 8000)
 share.sh         Optional public URL via cloudflared
 requirements.txt The Python libraries

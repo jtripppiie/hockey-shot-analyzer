@@ -49,7 +49,7 @@ function gradeClass(grade) {
 }
 
 // Shared metric-card renderer (handles unmeasured / null score cleanly)
-function _metricCardHtml(key, meta, m) {
+function _metricCardHtml(key, meta, m, isPriority = false) {
   const isUnmeasured = m.status === "unmeasured" || m.score == null;
   if (isUnmeasured) {
     return `
@@ -67,8 +67,9 @@ function _metricCardHtml(key, meta, m) {
   const valueStr = (m.value != null && meta.unit !== undefined)
     ? `<span class="metric-value-line">measured: ${typeof m.value === "number" ? Math.round(m.value * 10) / 10 : m.value}${meta.unit}</span>`
     : "";
+  const klass = isPriority ? "metric-card metric-priority" : "metric-card";
   return `
-    <div class="metric-card">
+    <div class="${klass}">
       <div class="metric-header">
         <span class="metric-icon">${meta.icon}</span>
         <span class="metric-name">${meta.label}</span>
@@ -82,6 +83,45 @@ function _metricCardHtml(key, meta, m) {
       ${valueStr}
       <p class="metric-tip">${m.tip}</p>
     </div>`;
+}
+
+// Hero summary band + tagline (results screen)
+function _renderHeroSummary(data) {
+  const bandEl = document.getElementById("overallBand");
+  const lineEl = document.getElementById("overallTagline");
+  if (!bandEl || !lineEl) return;
+  const overall = data.summary?.overall;
+  if (overall == null) {
+    bandEl.textContent = "";
+    lineEl.textContent = "";
+    return;
+  }
+  const allMetrics = Object.entries(data.metrics || {})
+    .filter(([, m]) => m && m.score != null && m.status !== "unmeasured");
+  const strengths = allMetrics.filter(([, m]) => m.score >= 75)
+    .sort((a, b) => b[1].score - a[1].score);
+  const focus = allMetrics.filter(([, m]) => m.score < 75)
+    .sort((a, b) => a[1].score - b[1].score);
+  const strongLabel = strengths[0]?.[1]?.coaching?.label || strengths[0]?.[0]?.replace(/_/g, " ");
+  const focusLabel  = focus[0]?.[1]?.coaching?.label    || focus[0]?.[0]?.replace(/_/g, " ");
+  let band;
+  if (overall >= 85)      band = "Elite Form";
+  else if (overall >= 70) band = "Solid Foundation";
+  else if (overall >= 50) band = "Building Up";
+  else if (overall >= 30) band = "Early Days";
+  else                    band = "Just Starting";
+  let tagline;
+  if (strongLabel && focusLabel)
+    tagline = `Strong ${strongLabel.toLowerCase()}. Focus on ${focusLabel.toLowerCase()} for the biggest gain.`;
+  else if (focusLabel)
+    tagline = `Biggest opportunity: ${focusLabel.toLowerCase()}.`;
+  else if (strongLabel)
+    tagline = `Everything we could measure looks strong — nice work on ${strongLabel.toLowerCase()}.`;
+  else
+    tagline = "Couldn't measure enough of this clip to score reliably — see the quality banner above.";
+  bandEl.textContent = band.toUpperCase();
+  bandEl.style.color = scoreColor(overall);
+  lineEl.textContent = tagline;
 }
 
 // Quality / data-confidence banner
@@ -318,6 +358,9 @@ function renderResults(data) {
   overallEl.textContent = s.overall == null ? "—" : s.overall;
   overallEl.style.color = scoreColor(s.overall || 0);
 
+  // Hero band + tagline (derived from score band + coach report)
+  _renderHeroSummary(data);
+
   document.getElementById("powerNum").textContent     = s.power     == null ? "—" : s.power;
   document.getElementById("techniqueNum").textContent = s.technique == null ? "—" : s.technique;
   document.getElementById("timingNum").textContent    = s.timing    == null ? "—" : s.timing;
@@ -326,18 +369,24 @@ function renderResults(data) {
   document.getElementById("sub-technique").querySelector(".sub-val").style.color = scoreColor(s.technique || 0);
   document.getElementById("sub-timing").querySelector(".sub-val").style.color    = scoreColor(s.timing    || 0);
 
-  document.getElementById("filenameLabel").textContent = "📁 " + data.filename;
+  const fnEl = document.getElementById("filenameLabel");
+  if (fnEl) fnEl.textContent = data.filename || "";
 
   // Data-quality banner (camera angle warnings, unmeasured metrics, etc.)
   _renderQualityBanner(data.quality_report);
 
-  // Metric cards (null-safe — unmeasured metrics render as a greyed card)
+  // Metric cards — sorted weakest-first; top card flagged as priority
   const grid = document.getElementById("metricGrid");
   grid.innerHTML = "";
-  for (const [key, meta] of Object.entries(METRIC_META)) {
-    const m = data.metrics[key];
-    if (!m) continue;
-    grid.insertAdjacentHTML("beforeend", _metricCardHtml(key, meta, m));
+  const measured = Object.entries(METRIC_META)
+    .map(([key, meta]) => [key, meta, data.metrics[key]])
+    .filter(([, , m]) => m);
+  const measuredScored = measured.filter(([, , m]) => m.score != null && m.status !== "unmeasured");
+  const unmeasured     = measured.filter(([, , m]) => m.score == null || m.status === "unmeasured");
+  measuredScored.sort((a, b) => (a[2].score ?? 999) - (b[2].score ?? 999));
+  const topPriorityKey = measuredScored.length && measuredScored[0][2].score < 75 ? measuredScored[0][0] : null;
+  for (const [key, meta, m] of [...measuredScored, ...unmeasured]) {
+    grid.insertAdjacentHTML("beforeend", _metricCardHtml(key, meta, m, key === topPriorityKey));
   }
 
   // Animate bars

@@ -3,55 +3,141 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🏒 Hockey Shot Analyzer</title>
+  <title>Hockey Shot Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body>
-  <!-- ── HEADER ── -->
-  <header>
-    <span class="logo">🏒</span>
-    <div>
-      <h1>Hockey Shot Analyzer</h1>
-      <p class="tagline">Upload your clip · See your skeleton · Improve your shot</p>
-    </div>
-    <span id="expertIndicator" class="expert-indicator hidden">🧑‍🏫 EXPERT MODE</span>
-    <button id="historyBtn" class="btn-ghost" onclick="showHistory()">📊 History</button>
-  </header>
+<body data-screen="upload">
 
-  <!-- ── MAIN ── -->
   <main>
 
-    <!-- Upload panel -->
-    <section id="uploadSection">
-      <div class="upload-card" id="dropZone">
-        <div class="upload-icon">🎬</div>
-        <h2>Drop your shot clip here</h2>
-        <p>or click to browse &nbsp;·&nbsp; MP4 / MOV &nbsp;·&nbsp; 5–10 seconds</p>
-        <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/avi" hidden />
-        <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose Video</button>
-        <p class="hint">🎯 Best results: side view · 1080p · 60 fps · good lighting</p>
-      </div>
+    <!-- ─────────────────────────  UPLOAD SCREEN (dark)  ───────────────────── -->
+    <section id="uploadSection" class="screen screen-dark">
 
-      <div class="or-divider"><span>or</span></div>
-
-      <div class="youtube-card">
-        <div class="upload-icon">📺</div>
-        <h2>Paste a YouTube link</h2>
-        <p>Optionally trim to just the shot (max 60 seconds)</p>
-        <input type="url" id="ytUrl" placeholder="https://youtube.com/watch?v=... or https://youtu.be/..." />
-        <div class="yt-times">
-          <label>
-            <span>Start</span>
-            <input type="text" id="ytStart" placeholder="0:05" />
-          </label>
-          <label>
-            <span>End</span>
-            <input type="text" id="ytEnd" placeholder="0:15" />
-          </label>
+      <header class="topbar topbar-dark">
+        <div class="topbar-brand">
+          <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
+            <!-- Hockey stick + puck mark -->
+            <path d="M14 16 L62 56 L72 48" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="20" cy="62" rx="10" ry="4" fill="#DC2626"/>
+          </svg>
+          <span class="brand-text">Hockey Shot Analyzer</span>
         </div>
-        <button class="btn-primary" onclick="submitYouTube()">Analyze YouTube Clip</button>
-        <p class="hint">⏱ Time format: <code>SS</code> · <code>MM:SS</code> · <code>HH:MM:SS</code></p>
-      </div>
+        <div class="topbar-actions">
+          <button id="historyBtn" class="btn-ghost-dark" onclick="showHistory()">History</button>
+        </div>
+      </header>
+
+      <!-- HERO -->
+      <div class="hero">
+
+        <div class="hero-art" aria-hidden="true">
+          <!-- Background image (real photo silhouette) is set in CSS.
+               If /static/assets/hockey-player.png is missing, this inline SVG
+               renders as a fallback so the hero never looks broken. -->
+          <svg class="hero-art-svg" viewBox="0 0 420 540" xmlns="http://www.w3.org/2000/svg">
+            <!-- Stick: shaft + blade (curved down-right) -->
+            <path d="M 80 60 L 360 360" stroke="#0F172A" stroke-width="14" stroke-linecap="round"/>
+            <path d="M 360 360 Q 380 380 410 372" stroke="#0F172A" stroke-width="14" stroke-linecap="round" fill="none"/>
+            <!-- Top (back) hand grip -->
+            <circle cx="100" cy="80" r="16" fill="#0F172A"/>
+            <!-- Lower hand grip on shaft -->
+            <circle cx="200" cy="180" r="16" fill="#0F172A"/>
+            <!-- Helmet -->
+            <ellipse cx="178" cy="120" rx="34" ry="32" fill="#0F172A"/>
+            <!-- Cage / visor hint -->
+            <rect x="148" y="125" width="60" height="14" rx="3" fill="#0F172A" opacity="0.85"/>
+            <!-- Body — leaning forward into the shot -->
+            <path d="M 152 148 L 220 152 L 260 280 L 156 270 Z" fill="#0F172A"/>
+            <!-- Back arm (driving stick) -->
+            <path d="M 158 160 L 100 80 L 116 64 L 178 148 Z" fill="#0F172A"/>
+            <!-- Front arm (lower on shaft) -->
+            <path d="M 216 172 L 200 184 L 188 168 L 204 156 Z" fill="#0F172A"/>
+            <!-- Pants / hip — broad block -->
+            <path d="M 156 270 L 268 280 L 280 348 L 152 340 Z" fill="#0F172A"/>
+            <!-- Back leg (planted, bent) -->
+            <path d="M 168 340 L 134 432 L 168 444 L 200 350 Z" fill="#0F172A"/>
+            <!-- Front leg (stride forward) -->
+            <path d="M 252 340 L 304 430 L 340 422 L 286 342 Z" fill="#0F172A"/>
+            <!-- Skate boots -->
+            <ellipse cx="156" cy="446" rx="32" ry="8" fill="#0F172A"/>
+            <ellipse cx="324" cy="424" rx="32" ry="8" fill="#0F172A"/>
+            <!-- Skate blades -->
+            <rect x="128" y="452" width="60" height="3" rx="1" fill="#0F172A"/>
+            <rect x="296" y="430" width="60" height="3" rx="1" fill="#0F172A"/>
+            <!-- Puck (in front of blade) -->
+            <ellipse cx="408" cy="386" rx="14" ry="6" fill="#DC2626"/>
+          </svg>
+        </div>
+
+        <div class="hero-body">
+
+          <h1 class="hero-title">Upload Your Shot</h1>
+          <p class="hero-sub">Drop a side-view clip or paste a YouTube link. We&rsquo;ll measure the things that decide every shot &mdash; power, technique, timing &mdash; and tell you the one to fix first.</p>
+
+          <!-- Combined upload + youtube card -->
+          <div id="dropZone" class="upload-zone">
+            <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/avi" hidden />
+
+            <div class="upload-zone-local">
+              <div class="upload-zone-glyph" aria-hidden="true">
+                <svg viewBox="0 0 32 32"><path d="M16 4 L16 22 M9 11 L16 4 L23 11 M5 24 L5 28 L27 28 L27 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="upload-zone-text">
+                <strong>Drop your shot clip here</strong>
+                <span>MP4 / MOV &middot; single attempt &middot; load through follow-through</span>
+              </div>
+              <button class="btn-primary" type="button" onclick="document.getElementById('fileInput').click()">Choose Video</button>
+            </div>
+
+            <div class="upload-zone-or" aria-hidden="true"><span>or</span></div>
+
+            <div class="upload-zone-youtube">
+              <label class="yt-field" for="ytUrl">
+                <span>Paste a YouTube link</span>
+                <input type="url" id="ytUrl" placeholder="https://youtube.com/watch?v=… or https://youtu.be/…" />
+              </label>
+              <div class="yt-times">
+                <label>
+                  <span>Start <em>(optional)</em></span>
+                  <input type="text" id="ytStart" placeholder="0:05" />
+                </label>
+                <label>
+                  <span>End <em>(optional)</em></span>
+                  <input type="text" id="ytEnd" placeholder="0:15" />
+                </label>
+              </div>
+              <button class="btn-primary btn-block" type="button" onclick="submitYouTube()">Analyze Shot</button>
+              <p class="hint hint-dark">Time format: <code>SS</code> &middot; <code>MM:SS</code> &middot; <code>HH:MM:SS</code> &middot; max 60 s</p>
+            </div>
+          </div>
+
+          <!-- Side-by-side meta -->
+          <div class="hero-meta">
+            <div class="hero-meta-block">
+              <h4>Best Results</h4>
+              <ul>
+                <li>True side view, perpendicular to the shot direction</li>
+                <li>Camera at the player&rsquo;s hip height</li>
+                <li>1080p &middot; 60 fps</li>
+                <li>One shot &middot; one player in frame</li>
+              </ul>
+            </div>
+            <div class="hero-meta-block">
+              <h4>You&rsquo;ll Receive</h4>
+              <ul>
+                <li>Skeleton overlay video</li>
+                <li>Shot score &amp; sub-scores</li>
+                <li>Per-metric coaching feedback</li>
+                <li>Practice drills tailored to your gaps</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /hero -->
 
       <!-- Filming tips -->
       <details class="tips-card" id="filmingTips">
@@ -65,19 +151,19 @@
           <div class="tips-grid">
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">📏</span><strong>Camera at hip height</strong></div>
-              <p>Mount the phone at roughly the player's hip level, not down at ice level or up in the stands. A hip-height camera makes joint angles read true; an extreme up- or down-angle warps every measurement.</p>
+              <p>Mount the phone at roughly the player&rsquo;s hip level, not down at ice level or up in the stands. A hip-height camera makes joint angles read true; an extreme up- or down-angle warps every measurement.</p>
             </div>
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">🔄</span><strong>True side-on</strong></div>
-              <p>Stand perpendicular to where the puck will go — not behind, not in front, not at a diagonal. Even 20° off-axis quietly inflates rotation scores and squashes follow-through height.</p>
+              <p>Stand perpendicular to where the puck will go &mdash; not behind, not in front, not at a diagonal. Even 20° off-axis quietly inflates rotation scores and squashes follow-through height.</p>
             </div>
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">📐</span><strong>Full body in frame</strong></div>
-              <p>Skates to head, with ~10% padding on every side, for the whole shot (load → follow-through). If the stick or wrists leave the frame mid-shot, follow-through can’t be scored.</p>
+              <p>Skates to head, with ~10% padding on every side, for the whole shot (load → follow-through). If the stick or wrists leave the frame mid-shot, follow-through can&rsquo;t be scored.</p>
             </div>
             <div class="tip">
-              <div class="tip-head"><span class="tip-icon">🎥</span><strong>1080p · 60 fps</strong></div>
-              <p>If your phone can do 1080p at 60 fps, use it. The release-timing metric depends on frame rate — 30 fps caps timing resolution at ~33 ms.</p>
+              <div class="tip-head"><span class="tip-icon">🎥</span><strong>1080p &middot; 60 fps</strong></div>
+              <p>If your phone can do 1080p at 60 fps, use it. The release-timing metric depends on frame rate &mdash; 30 fps caps timing resolution at ~33 ms.</p>
             </div>
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">💡</span><strong>Even light, no silhouette</strong></div>
@@ -85,48 +171,55 @@
             </div>
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">✂️</span><strong>One shot per clip</strong></div>
-              <p>Trim to the single attempt — load through follow-through is enough. Extra footage slows the phase detector and makes "load" / "release" picks less reliable.</p>
+              <p>Trim to the single attempt &mdash; load through follow-through is enough. Extra footage slows the phase detector and makes &ldquo;load&rdquo; / &ldquo;release&rdquo; picks less reliable.</p>
             </div>
             <div class="tip">
               <div class="tip-head"><span class="tip-icon">🧍</span><strong>Just one player</strong></div>
               <p>If a teammate skates through the frame the pose tracker may latch onto the wrong person mid-shot. Pause the recording until you have a clear lane.</p>
             </div>
           </div>
-          <p class="tips-foot">A coloured quality banner at the top of the results page will call out anything we couldn’t measure on this particular clip.</p>
+          <p class="tips-foot">A coloured quality banner at the top of the results page will call out anything we couldn&rsquo;t measure on this particular clip.</p>
         </div>
       </details>
     </section>
 
     <!-- Progress -->
-    <section id="progressSection" class="hidden">
+    <section id="progressSection" class="hidden screen screen-dark">
+      <header class="topbar topbar-dark">
+        <div class="topbar-brand">
+          <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
+            <path d="M14 16 L62 56 L72 48" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="20" cy="62" rx="10" ry="4" fill="#DC2626"/>
+          </svg>
+          <span class="brand-text">Hockey Shot Analyzer</span>
+        </div>
+      </header>
       <div class="progress-card">
         <h2 id="progressMsg">Uploading clip…</h2>
         <p>Detecting landmarks and computing your shot score</p>
 
         <div class="scene scene-hockey" id="progressScene" aria-hidden="true">
-          <div class="scene-rink"></div>
-          <div class="scene-net">
-            <svg viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="6" width="36" height="60" fill="none" stroke="#dc2626" stroke-width="3"/>
-              <path d="M2 6 L8 18 L8 60 L2 66 Z" fill="rgba(255,255,255,0.7)" stroke="#dc2626" stroke-width="1.5"/>
-              <path d="M38 6 L32 18 L32 60 L38 66 Z" fill="rgba(255,255,255,0.7)" stroke="#dc2626" stroke-width="1.5"/>
-              <path d="M8 18 L32 18 L32 60 L8 60 Z" fill="rgba(255,255,255,0.5)"/>
-              <line x1="8" y1="30" x2="32" y2="30" stroke="#9ca3af" stroke-width="0.7"/>
-              <line x1="8" y1="42" x2="32" y2="42" stroke="#9ca3af" stroke-width="0.7"/>
-              <line x1="8" y1="54" x2="32" y2="54" stroke="#9ca3af" stroke-width="0.7"/>
-              <line x1="16" y1="18" x2="16" y2="60" stroke="#9ca3af" stroke-width="0.7"/>
-              <line x1="24" y1="18" x2="24" y2="60" stroke="#9ca3af" stroke-width="0.7"/>
-            </svg>
+          <div class="scene-sky"></div>
+          <div class="scene-runway"></div>
+          <div class="scene-runway-lines"></div>
+          <div class="scene-pit">
+            <div class="scene-bar"></div>
+            <div class="scene-stand scene-stand-left"></div>
+            <div class="scene-stand scene-stand-right"></div>
           </div>
           <div class="scene-character">
             <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+              <!-- Stick -->
               <line x1="40" y1="50" x2="76" y2="72" stroke="#92400e" stroke-width="3.5" stroke-linecap="round"/>
               <rect x="71" y="69" width="11" height="5" rx="1" fill="#111" transform="rotate(28 76 72)"/>
+              <!-- Helmet -->
               <path d="M22 18 Q22 7 32 7 Q42 7 42 18 L42 24 L22 24 Z" fill="#1e3a8a"/>
               <circle cx="32" cy="22" r="6" fill="#fcd5b4"/>
+              <!-- Jersey -->
               <path d="M20 26 L44 26 L48 58 L42 64 L22 64 L16 58 Z" fill="#dc2626"/>
               <path d="M44 30 L40 50 L40 50" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
               <path d="M22 30 L18 50 L32 54" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
+              <!-- Legs -->
               <line x1="28" y1="64" x2="20" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
               <line x1="38" y1="64" x2="46" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
               <ellipse cx="18" cy="94" rx="7" ry="2" fill="#222"/>
@@ -142,60 +235,90 @@
       </div>
     </section>
 
-    <!-- Results -->
-    <section id="resultsSection" class="hidden">
+    <!-- ─────────────────────────  RESULTS SCREEN (light)  ───────────────────── -->
+    <section id="resultsSection" class="hidden screen screen-light">
 
-      <div class="results-top">
-        <!-- Left: skeleton video + score summary stacked underneath -->
-        <div class="left-panel">
-          <h3>Skeleton Overlay</h3>
+      <header class="topbar topbar-light">
+        <div class="topbar-brand">
+          <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
+            <path d="M14 16 L62 56 L72 48" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="20" cy="62" rx="10" ry="4" fill="#DC2626"/>
+          </svg>
+          <span class="brand-text">Hockey Shot Analyzer</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-ghost" onclick="showHistory()">History</button>
+        </div>
+      </header>
+
+      <!-- 1. Quality banner is injected here by app.js -->
+
+      <!-- 2. Hero summary -->
+      <section class="result-hero">
+        <div class="result-hero-main">
+          <span class="result-hero-eyebrow">Shot Score</span>
+          <span class="result-hero-num" id="overallNum">—</span>
+          <span class="result-hero-band" id="overallBand"></span>
+          <p class="result-hero-tagline" id="overallTagline">Analyzing…</p>
+          <p class="result-hero-file" id="filenameLabel"></p>
+        </div>
+        <div class="result-hero-subs">
+          <div class="sub-score" id="sub-power">
+            <span class="sub-label">Power</span>
+            <span class="sub-val" id="powerNum">—</span>
+          </div>
+          <div class="sub-score" id="sub-technique">
+            <span class="sub-label">Technique</span>
+            <span class="sub-val" id="techniqueNum">—</span>
+          </div>
+          <div class="sub-score" id="sub-timing">
+            <span class="sub-label">Timing</span>
+            <span class="sub-val" id="timingNum">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Skeleton overlay video -->
+      <section class="result-video">
+        <div class="result-block-head">
+          <h2>Skeleton Overlay</h2>
+          <p class="hint" id="videoStatus">Building overlay video…</p>
+        </div>
+        <div class="result-video-frame">
           <video id="overlayVideo" controls loop playsinline muted preload="metadata">
             <source id="overlayVideoSource" src="" type='video/mp4; codecs="avc1.42E01E"' />
             Your browser doesn't support HTML5 video.
           </video>
-          <p class="hint" id="videoStatus">⏳ Building overlay video…</p>
-
-          <div class="overall-badge" id="overallBadge">
-            <span class="overall-label">Shot Score</span>
-            <span class="overall-num" id="overallNum">—</span>
-            <span class="overall-100">/ 100</span>
-          </div>
-
-          <div class="sub-scores">
-            <div class="sub-score" id="sub-power">
-              <span class="sub-icon">💪</span>
-              <span class="sub-label">Power</span>
-              <span class="sub-val" id="powerNum">—</span>
-            </div>
-            <div class="sub-score" id="sub-technique">
-              <span class="sub-icon">🎯</span>
-              <span class="sub-label">Technique</span>
-              <span class="sub-val" id="techniqueNum">—</span>
-            </div>
-            <div class="sub-score" id="sub-timing">
-              <span class="sub-icon">⚡</span>
-              <span class="sub-label">Timing</span>
-              <span class="sub-val" id="timingNum">—</span>
-            </div>
-          </div>
-
-          <p class="filename-label" id="filenameLabel"></p>
         </div>
+        <ol class="phase-timeline" aria-label="Shot phases">
+          <li><span class="phase-dot"></span>Setup</li>
+          <li><span class="phase-dot"></span>Load</li>
+          <li><span class="phase-dot"></span>Release</li>
+          <li><span class="phase-dot"></span>Follow-Through</li>
+        </ol>
+      </section>
 
-        <!-- Right: shot breakdown grid -->
-        <div class="breakdown-panel">
-          <h3 class="section-title section-title-inline">Shot Breakdown</h3>
-          <div class="metric-grid metric-grid-side" id="metricGrid"></div>
+      <!-- 4. Shot breakdown -->
+      <section class="result-block">
+        <div class="result-block-head">
+          <h2>Shot Breakdown</h2>
+          <p class="hint">Sorted by biggest opportunity first.</p>
         </div>
-      </div>
+        <div class="metric-grid" id="metricGrid"></div>
+      </section>
 
-      <!-- Coach's Report -->
-      <h3 class="section-title">🏒 Coach's Report</h3>
-      <div id="coachStrengths" class="coach-block strengths"></div>
-      <div id="coachFocus" class="coach-block focus"></div>
-      <div id="coachDrills" class="coach-drills"></div>
+      <!-- 5. Coach's report -->
+      <section class="result-block coach-report">
+        <div class="result-block-head">
+          <h2>Coach&rsquo;s Report</h2>
+          <p class="hint">What you did well, your biggest priority, and the drill to take to practice.</p>
+        </div>
+        <div id="coachStrengths" class="coach-block strengths"></div>
+        <div id="coachFocus" class="coach-block focus"></div>
+        <div id="coachDrills" class="coach-drills"></div>
+      </section>
 
-      <!-- ── EXPERT FEEDBACK (desktop-only, hidden by default) ── -->
+      <!-- 6. Expert feedback (desktop-only, hidden by default) -->
       <div id="expertPanel" class="expert-panel hidden">
         <div class="expert-panel-head">
           <h3>🧑‍🏫 Expert Feedback</h3>
@@ -304,33 +427,46 @@
 
       <!-- Try another -->
       <div class="try-again">
-        <button class="btn-primary" onclick="resetUI()">📹 Analyze Another Shot</button>
-        <button class="btn-ghost" onclick="showHistory()">📊 View History</button>
+        <button class="btn-primary" onclick="resetUI()">Analyze Another Shot</button>
+        <button class="btn-ghost" onclick="showHistory()">View History</button>
       </div>
     </section>
 
     <!-- History panel -->
-    <section id="historySection" class="hidden">
+    <section id="historySection" class="hidden screen screen-light">
+      <header class="topbar topbar-light">
+        <div class="topbar-brand">
+          <svg class="brand-mark" viewBox="0 0 80 80" aria-hidden="true">
+            <path d="M14 16 L62 56 L72 48" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="20" cy="62" rx="10" ry="4" fill="#DC2626"/>
+          </svg>
+          <span class="brand-text">Hockey Shot Analyzer</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-ghost" onclick="showUpload()">Analyze New Shot</button>
+        </div>
+      </header>
+
       <div class="history-header">
-        <h3 class="section-title" style="margin:0">📊 Shot History</h3>
-        <button class="btn-danger" onclick="clearAllHistory()">🗑 Clear All</button>
+        <h2>Shot History</h2>
+        <button class="btn-danger" onclick="clearAllHistory()">Clear All</button>
       </div>
 
       <div id="historyList" class="history-list"></div>
 
-      <!-- Detail view (loaded when a row is clicked) -->
       <div id="historyDetail" class="hidden">
         <button class="btn-ghost small" onclick="closeHistoryDetail()" style="margin-bottom:16px">⬅ Back to History</button>
         <div id="historyDetailContent"></div>
       </div>
-
-      <button class="btn-ghost" onclick="showUpload()" style="margin-top:8px">⬅ Analyze New Shot</button>
     </section>
 
   </main>
 
+  <!-- Global expert-mode badge (Ctrl+Shift+F toggles) -->
+  <span id="expertIndicator" class="expert-indicator hidden">EXPERT MODE</span>
+
   <!-- Floating "new clip" action button (visible everywhere except upload page) -->
-  <button id="fabNewClip" class="fab" onclick="resetUI()" title="Analyze another shot">
+  <button id="fabNewClip" class="fab hidden" onclick="resetUI()" title="Analyze another shot">
     <span class="fab-icon">＋</span>
     <span class="fab-label">New Clip</span>
   </button>

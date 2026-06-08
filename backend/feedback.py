@@ -54,6 +54,7 @@ def save_feedback(
     checkboxes: list[str],
     note: str,
     reviewer: str = "",
+    frame_url: str = "",
 ) -> dict[str, Any]:
     """Append one feedback entry to the JSONL log and return the stored record.
 
@@ -102,6 +103,7 @@ def save_feedback(
         "human_checkboxes": [c for c in CHECKBOX_KEYS if c in checkboxes],  # canonical order
         "human_note": (note or "").strip(),
         "reviewer": (reviewer or "").strip(),
+        "frame_url": (frame_url or "").strip(),
         "score_delta": (
             int(corrected_score) - ai_summary.get("overall", 0)
             if ai_summary.get("overall") is not None
@@ -185,6 +187,7 @@ def save_measurement_feedback(
     checkboxes: list[str],
     overall_label: str,
     note: str,
+    frame_url: str = "",
 ) -> dict[str, Any]:
     """Append one measurement-quality feedback entry. Anonymous."""
     if overall_label not in OVERALL_MEASUREMENT_LABELS:
@@ -224,6 +227,7 @@ def save_measurement_feedback(
         "checkboxes": [c for c in MEASUREMENT_CHECKBOX_KEYS if c in checkboxes],
         "overall_label": overall_label,
         "note": (note or "").strip(),
+        "frame_url": (frame_url or "").strip(),
         "app_version": APP_VERSION,
     }
 

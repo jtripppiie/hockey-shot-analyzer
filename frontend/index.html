@@ -157,6 +157,13 @@
             <textarea id="fbNote" rows="4" placeholder="e.g. AI marked weight transfer 'good' but back foot never left the ice. Camera was too far behind to see follow-through."></textarea>
           </label>
 
+          <div class="capture-row">
+            <button class="btn-ghost" onclick="captureFrame('fb')">📸 Capture current frame</button>
+            <input type="hidden" id="fbFrameUrl" value="">
+            <span id="fbCaptureStatus" class="fb-status"></span>
+          </div>
+          <img id="fbFramePreview" class="frame-preview hidden" alt="captured frame">
+
           <div class="expert-actions">
             <button class="btn-primary" onclick="submitFeedback()">💾 Save feedback</button>
             <button class="btn-ghost" onclick="openExpertReport()">📄 Open expert report (Print → PDF)</button>
@@ -198,6 +205,13 @@
               <span>Note about analyzer quality (optional)</span>
               <textarea id="mfbNote" rows="3" placeholder="e.g. The release frame was detected 2 frames late which threw off the follow-through angle."></textarea>
             </label>
+
+            <div class="capture-row">
+              <button class="btn-ghost" onclick="captureFrame('mfb')">📸 Capture current frame</button>
+              <input type="hidden" id="mfbFrameUrl" value="">
+              <span id="mfbCaptureStatus" class="fb-status"></span>
+            </div>
+            <img id="mfbFramePreview" class="frame-preview hidden" alt="captured frame">
 
             <div class="expert-actions">
               <button class="btn-primary" onclick="submitMeasurementFeedback()">💾 Save measurement feedback</button>

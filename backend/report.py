@@ -96,12 +96,18 @@ def render_report(
             )
             reviewer = escape(fb.get("reviewer") or "anonymous")
             ts = escape(fb.get("timestamp") or "")
+            frame = fb.get("frame_url") or ""
+            frame_html = (
+                f"<img class='fb-frame' src='{escape(frame)}' alt='captured frame' />"
+                if frame else ""
+            )
             cards.append(f"""
               <div class='fb-card'>
                 <div class='fb-head'>
                   <span class='fb-when'>🕒 {ts}</span>
                   <span class='fb-by'>by {reviewer}</span>
                 </div>
+                {frame_html}
                 <div class='fb-scores'>
                   <div><span class='fb-label'>AI score</span><span class='fb-val'>{ai if ai is not None else '—'}</span></div>
                   <div><span class='fb-label'>Human score</span><span class='fb-val'>{human if human is not None else '—'}</span></div>
@@ -147,12 +153,18 @@ def render_report(
             note_html = (
                 f"<blockquote>{escape(note)}</blockquote>" if note else ""
             )
+            frame = mfb.get("frame_url") or ""
+            frame_html = (
+                f"<img class='fb-frame' src='{escape(frame)}' alt='captured frame' />"
+                if frame else ""
+            )
             cards.append(f"""
               <div class='mfb-card'>
                 <div class='fb-head'>
                   <span class='fb-when'>🕒 {escape(mfb.get("timestamp") or "")}</span>
                   <span class='fb-by'>overall: <strong>{escape((mfb.get("overall_label") or "—").replace("_", " "))}</strong></span>
                 </div>
+                {frame_html}
                 <h4>Per-metric measurement quality</h4>
                 <ul class='mfb-metrics'>{ratings_html}</ul>
                 <h4>Analyzer flags</h4>
@@ -193,6 +205,7 @@ def render_report(
       .fb-val { font-size: 22px; font-weight: 700; }
       .fb-card ul { margin: 6px 0 0 18px; padding: 0; }
       .fb-card blockquote { margin: 6px 0 0; padding: 10px 14px; background: #f6f8fb; border-left: 3px solid #ea580c; border-radius: 4px; white-space: pre-wrap; }
+      .fb-frame { max-width: 100%; max-height: 360px; display: block; margin: 0 0 14px; border-radius: 8px; border: 1px solid #d1d5db; }
       .mfb { margin-top: 24px; padding: 24px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 14px; }
       .mfb h2 { margin-top: 0; }
       .mfb-card { background: white; padding: 18px; border-radius: 10px; margin-bottom: 14px; border: 1px solid #bfdbfe; }

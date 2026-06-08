@@ -713,6 +713,7 @@ async function submitFeedback() {
     checkboxes: checks,
     note: document.getElementById("fbNote").value,
     reviewer: document.getElementById("fbReviewer").value,
+    frame_url: document.getElementById("fbFrameUrl").value || "",
   };
   const status = document.getElementById("fbStatus");
   status.textContent = "Saving…"; status.style.color = "var(--muted)";
@@ -733,6 +734,7 @@ async function submitFeedback() {
     // Clear checkboxes + note (keep score + reviewer for batch reviewing)
     document.querySelectorAll("#fbCheckGrid input").forEach(c => c.checked = false);
     document.getElementById("fbNote").value = "";
+    _clearCapture("fb");
     _loadFeedbackHistory(currentJob.job_id);
     setTimeout(() => { status.textContent = ""; }, 4000);
   } catch (e) {
@@ -873,6 +875,7 @@ async function submitMeasurementFeedback() {
     checkboxes,
     overall_label: document.getElementById("mfbOverall").value,
     note: document.getElementById("mfbNote").value,
+    frame_url: document.getElementById("mfbFrameUrl").value || "",
   };
   const status = document.getElementById("mfbStatus");
   status.textContent = "Saving…"; status.style.color = "var(--muted)";
@@ -894,6 +897,7 @@ async function submitMeasurementFeedback() {
     document.querySelectorAll("#mfbMetricGrid .mfb-skip input").forEach(r => r.checked = true);
     document.querySelectorAll("#mfbCheckGrid input").forEach(c => c.checked = false);
     document.getElementById("mfbNote").value = "";
+    _clearCapture("mfb");
     _loadMeasurementHistory(currentJob.job_id);
     setTimeout(() => { status.textContent = ""; }, 4000);
   } catch (e) {
@@ -914,3 +918,45 @@ _refreshExpertVisibility = function() {
 };
 
 window.addEventListener("DOMContentLoaded", _buildMeasurementForm);
+
+// ── Frame capture (browser-side canvas) ─────────────────────────────────────
+async function captureFrame(prefix) {
+  if (!currentJob || !currentJob.job_id) { alert("No analyzed clip in view."); return; }
+  const video = document.getElementById("overlayVideo");
+  const status = document.getElementById(prefix + "CaptureStatus");
+  if (!video || !video.videoWidth) {
+    if (status) { status.textContent = "❌ No video loaded yet"; status.style.color = "#f85149"; }
+    return;
+  }
+  if (status) { status.textContent = "Capturing…"; status.style.color = "var(--muted)"; }
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.85));
+    const fd = new FormData();
+    fd.append("job_id", currentJob.job_id);
+    fd.append("t_sec", String(video.currentTime || 0));
+    fd.append("frame", blob, "capture.jpg");
+    const res = await fetch("/capture-frame", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    const { frame_url } = await res.json();
+    document.getElementById(prefix + "FrameUrl").value = frame_url;
+    const img = document.getElementById(prefix + "FramePreview");
+    img.src = frame_url + "?t=" + Date.now();
+    img.classList.remove("hidden");
+    if (status) { status.textContent = "✅ Captured @ " + (video.currentTime || 0).toFixed(2) + "s"; status.style.color = "#3fb950"; }
+  } catch (e) {
+    if (status) { status.textContent = "❌ " + e.message; status.style.color = "#f85149"; }
+  }
+}
+
+function _clearCapture(prefix) {
+  const u = document.getElementById(prefix + "FrameUrl");
+  const img = document.getElementById(prefix + "FramePreview");
+  const s = document.getElementById(prefix + "CaptureStatus");
+  if (u) u.value = "";
+  if (img) { img.src = ""; img.classList.add("hidden"); }
+  if (s) s.textContent = "";
+}

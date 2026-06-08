@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import shutil
+import time
 import subprocess
 import threading
 import traceback
@@ -381,6 +382,7 @@ async def save_feedback_endpoint(payload: dict = Body(...)):
             checkboxes=list(payload.get("checkboxes", []) or []),
             note=str(payload.get("note", "")),
             reviewer=str(payload.get("reviewer", "")),
+            frame_url=str(payload.get("frame_url", "")),
         )
         return JSONResponse({"ok": True, "feedback": record})
     except ValueError as e:
@@ -413,6 +415,7 @@ async def save_measurement_feedback_endpoint(payload: dict = Body(...)):
             checkboxes=list(payload.get("checkboxes", []) or []),
             overall_label=str(payload.get("overall_label", "")),
             note=str(payload.get("note", "")),
+            frame_url=str(payload.get("frame_url", "")),
         )
         return JSONResponse({"ok": True, "feedback": record})
     except ValueError as e:
@@ -441,3 +444,34 @@ def html_report(job_id: str, expert: int = 0):
     mfb = feedback_mod.measurement_feedback_for_job(FEEDBACK_LOG, job_id) if expert else None
     html = render_report(result, feedback=fb, measurement_feedback=mfb, expert=bool(expert))
     return HTMLResponse(html)
+
+
+# ── Frame capture (browser-side canvas → JPEG upload) ────────────────────────
+@app.post("/capture-frame")
+async def capture_frame(
+    job_id: str = Form(...),
+    t_sec: float = Form(0.0),
+    frame: UploadFile = File(...),
+):
+    """Save a JPEG captured by the browser (via <canvas>) under output/.
+    The frontend POSTs the frame so we never decode video server-side."""
+    safe_id = re.sub(r"[^a-zA-Z0-9_-]", "", job_id)[:32]
+    if not safe_id:
+        raise HTTPException(400, "Invalid job_id")
+    # Cap pasted MIME / extension; we always store as .jpg
+    suffix = ".jpg"
+    ts_ms = int(time.time() * 1000)
+    out_name = f"{safe_id}_capture_{ts_ms}{suffix}"
+    out_path = OUTPUT_DIR / out_name
+    # Path-traversal guard (resolved path must live under OUTPUT_DIR)
+    if not str(out_path.resolve()).startswith(str(OUTPUT_DIR.resolve())):
+        raise HTTPException(400, "Invalid path")
+    with open(out_path, "wb") as f:
+        shutil.copyfileobj(frame.file, f)
+    return JSONResponse({
+        "ok": True,
+        "frame_url": f"/output/{out_name}",
+        "t_sec": float(t_sec),
+        "filename": out_name,
+    })
+

@@ -5,9 +5,12 @@ decisions below are intentional and should not be undone without discussion.
 
 ## Current state
 
-- **Last shipped feature:** Expert Feedback Mode + Measurement Feedback +
-  Browser-side Frame Capture. Captured JPEGs attach to feedback rows for the
-  email-with-screenshot workflow.
+- **Last shipped features:**
+  1. Expert Feedback Mode (orange panel, desktop-only, `Ctrl/Cmd+Shift+F`).
+  2. Measurement Feedback (blue sub-panel, scores the *analyzer*, not the athlete).
+  3. Browser-side Frame Capture (📸 button → `/capture-frame` → JPEG attached to JSONL row → embedded in Expert report).
+  4. Athletic progress scene (rink + player + pucks animation) replacing the plain spinner during analysis.
+  5. Lighter, semi-transparent pose overlay (smaller dots, `cv2.addWeighted` blend at 0.65) so the underlying video shows through the skeleton.
 - **App version constant:** `APP_VERSION = "0.2.0-expert-feedback"` in
   `backend/feedback.py`.
 - **Sibling repo:** `pole-vault-analyzer` (mirrored structure, same patterns).
@@ -56,6 +59,16 @@ only large local asset (gitignored).
 5. **Path-traversal guard on `/capture-frame`** — `job_id` is stripped to
    `[a-zA-Z0-9_-]{1,32}`. The resolved output path is verified to live under
    `OUTPUT_DIR`.
+6. **Skeleton overlay is intentionally subtle** — the renderer draws into a
+   copy of the frame and blends back at 65 % (`cv2.addWeighted(overlay, 0.65,
+   frame, 0.35, 0, dst=frame)`). Dot/line sizes are deliberately small
+   (`dot_radius = max(3, min(w,h)/240)`). Don't crank these back up without a
+   reason — users complained the old solid overlay smothered the player.
+7. **Progress UI is a sport-themed scene, not a spinner** — hockey shows a
+   rink with a player firing pucks toward a goal (pure CSS keyframes). Vault
+   shows a runway scene where the vaulter's `left` position is driven by a
+   `--pct` custom property set by `setProgress()`. Both respect
+   `prefers-reduced-motion`.
 
 ## Hot files
 
@@ -64,8 +77,10 @@ only large local asset (gitignored).
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}` |
 | `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
-| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `_refreshExpertVisibility()` |
-| `frontend/index.html` | Markup ids: `overlayVideo`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid` |
+| `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |
+| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()` |
+| `frontend/index.html` | Markup ids: `overlayVideo`, `progressScene`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid` |
+| `frontend/style.css` | `.scene`, `.scene-character`, `.scene-puck`, `@keyframes puck-shoot`, `.frame-preview`, `.fb-frame` |
 
 ## Conventions
 

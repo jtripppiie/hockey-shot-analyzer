@@ -227,6 +227,21 @@ GET  /measurement-feedback/{job_id}      List measurement entries for a clip
 GET  /measurement-feedback               List all measurement entries
 ```
 
+### 📸 Capture a frame with your feedback
+
+Next to **Save feedback** (in both the orange and blue sub-sections) there's a **📸 Capture current frame** button. It grabs whatever frame the overlay video is paused on, sends the JPEG to the server, and attaches the resulting URL to the next feedback row you save.
+
+Why this exists: when a coach writes "the AI marked release too early — see how the puck is already 3 feet off the blade," the screenshot proves it. Captured frames also render inside the Expert HTML report so a printed PDF carries the visual evidence.
+
+How it works under the hood: the browser draws the current `<video>` frame onto a `<canvas>`, calls `canvas.toBlob()`, and POSTs it to `/capture-frame`. No server-side ffmpeg, no extra dependency. Files land in `output/{job_id}_capture_{timestamp}.jpg` and the URL is stored in the JSONL row's `frame_url` field.
+
+New endpoint:
+
+```
+POST /capture-frame                      Save a JPEG captured by the browser
+                                         (multipart: job_id, t_sec, frame)
+```
+
 ---
 
 ## Python libraries it installs
@@ -415,3 +430,13 @@ requirements.txt The Python libraries
 ## Tech behind the scenes
 
 Python 3.10 · FastAPI · uvicorn · MediaPipe Tasks PoseLandmarker (Lite) · OpenCV · NumPy · ffmpeg (H.264/yuv420p) · yt-dlp · vanilla HTML/CSS/JS.
+
+## A few UI details worth knowing
+
+- **Animated progress scene** — while a clip is being analyzed, the page shows a small rink scene: a player on the left fires a continuous stream of pucks toward a goalie net on the right. The plain progress bar underneath still tracks the actual percentage. The scene respects `prefers-reduced-motion` and falls back to a static drawing for users with motion sensitivity.
+- **Semi-transparent skeleton** — the pose overlay is drawn onto a copy of each frame and blended back at 65 % opacity, with smaller dot/line sizes than before. The underlying video stays visible *through* the skeleton so you can still see the puck, the stick, and the player's gear.
+- **Frame-capture button** — see the Expert Feedback section above. Each captured frame is also embedded into the Expert report.
+
+## For AI coding agents (Copilot, Claude, etc.)
+
+If you're an AI assistant being asked to extend this repo, read [AGENTS.md](AGENTS.md) **first**. It's a short fast-start brief covering the port, the live Cloudflare tunnel, the architectural decisions that should not be casually undone (one JSONL log with a `type` discriminator, desktop-only Expert Mode dual guard, browser-side frame capture, HTML-not-PDF reports), the path-traversal guard on `/capture-frame`, and the gotchas (don't `pkill -f uvicorn` — it kills the sibling vault server too).

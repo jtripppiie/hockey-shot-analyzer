@@ -6,11 +6,12 @@ decisions below are intentional and should not be undone without discussion.
 ## Current state
 
 - **Last shipped features:**
-  1. Expert Feedback Mode (orange panel, desktop-only, `Ctrl/Cmd+Shift+F`).
-  2. Measurement Feedback (blue sub-panel, scores the *analyzer*, not the athlete).
-  3. Browser-side Frame Capture (📸 button → `/capture-frame` → JPEG attached to JSONL row → embedded in Expert report).
-  4. Athletic progress scene (rink + player + pucks animation) replacing the plain spinner during analysis.
-  5. Lighter, semi-transparent pose overlay (smaller dots, `cv2.addWeighted` blend at 0.65) so the underlying video shows through the skeleton.
+  1. **Premium UI redesign (June 2026)** — dark upload screen + light coach-report results screen, mirroring the vault redesign so the two apps feel like the same tool family. Sora headings, Inter body. Two-column hero with hockey-player silhouette art slot: `/static/assets/hockey-player.png` (CSS `background-image`, inverted on dark) is used when present; an inline SVG silhouette in `index.html` fills the slot as a fallback so the column is never blank. Single combined upload card (file-drop AND YouTube paste). Filming-tips collapsed by default. Light results screen has a focused hero with banded score label (`Elite Form` / `Solid Foundation` / `Building Up` / `Early Days` / `Just Starting`), one-line tagline derived from strongest+weakest measured metric, phase timeline (Setup→Load→Release→Follow-Through), and a `metric-grid` sorted weakest-first with the top opportunity flagged via a `metric-priority` orange pill. Coach’s Report split into strengths / focus / drills. Progress scene is now an ice-rink palette with a helmeted player + 3 flying pucks (`puck-fly` keyframe). Tokens live under `:root` (`--d-*` dark palette, `--l-*` light palette, accents, `--font-head`, `--font-body`). **Hard rule:** all existing element IDs (`overallNum`, `sub-power`, `sub-technique`, `sub-timing`, `powerNum`, `techniqueNum`, `timingNum`, `metricGrid`, `coachStrengths`, etc.) are preserved verbatim — do not rename without grepping `app.js` first.
+  2. Expert Feedback Mode (orange panel, desktop-only, `Ctrl/Cmd+Shift+F`).
+  3. Measurement Feedback (blue sub-panel, scores the *analyzer*, not the athlete).
+  4. Browser-side Frame Capture (📸 button → `/capture-frame` → JPEG attached to JSONL row → embedded in Expert report).
+  5. Athletic progress scene (rink + player + pucks animation) replacing the plain spinner during analysis.
+  6. Lighter, semi-transparent pose overlay (smaller dots, `cv2.addWeighted` blend at 0.65) so the underlying video shows through the skeleton.
 - **App version constant:** `APP_VERSION = "0.2.0-expert-feedback"` in
   `backend/feedback.py`.
 - **Sibling repo:** `pole-vault-analyzer` (mirrored structure, same patterns).

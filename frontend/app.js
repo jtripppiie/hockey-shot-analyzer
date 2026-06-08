@@ -424,17 +424,19 @@ async function showHistory() {
     const card = document.createElement("div");
     card.className = "history-card";
     card.innerHTML = `
-      <img class="history-thumb" src="/output/${row.job_id}_frame.jpg" onerror="this.style.display='none'" />
-      <div class="history-info">
+      <img class="history-thumb" src="/output/${row.job_id}_frame.jpg" onerror="this.outerHTML='<div class=\'history-thumb-placeholder\'>🏒</div>'" />
+      <div class="history-body">
         <div class="history-filename" title="${row.filename}">${row.filename}</div>
-        <div class="history-date">📅 ${row.date}</div>
-        <div class="history-pills">
-          <span class="history-pill" style="color:#58a6ff">💪 ${row.power}</span>
-          <span class="history-pill" style="color:#3fb950">🎯 ${row.technique}</span>
-          <span class="history-pill" style="color:#d29922">⚡ ${row.timing}</span>
+        <div class="history-date">${row.date}</div>
+        <div class="history-score-row">
+          <div class="history-score-big" style="color:${scoreColor_}">${row.overall}</div>
+          <div class="history-pills">
+            <span class="history-pill" style="color:#58a6ff">💪 ${row.power}</span>
+            <span class="history-pill" style="color:#3fb950">🎯 ${row.technique}</span>
+            <span class="history-pill" style="color:#d29922">⚡ ${row.timing}</span>
+          </div>
         </div>
       </div>
-      <div class="history-score-big" style="color:${scoreColor_}">${row.overall}</div>
       <button class="history-delete" title="Delete this shot" onclick="deleteHistoryItem(event,'${row.job_id}')">🗑</button>
     `;
     card.addEventListener("click", (e) => {

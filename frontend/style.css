@@ -304,11 +304,8 @@ main { width: 100%; }
 .btn-ghost:hover { background: var(--l-elev); border-color: var(--l-border-strong); }
 .btn-ghost.small { padding: 7px 12px; font-size: 13px; }
 
-.btn-ghost-dark {
-  border-color: var(--d-border-strong);
-  color: var(--d-text);
-}
-.btn-ghost-dark:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.32); }
+/* Legacy alias — older HTML uses .btn-ghost-dark; renders identically to .btn-ghost now. */
+.btn-ghost-dark:hover { background: var(--l-elev); border-color: var(--l-border-strong); }
 
 .btn-danger {
   background: var(--red);
@@ -495,6 +492,29 @@ main { width: 100%; }
   .progress-card { margin-top: 32px; padding: 24px 18px; border-radius: 16px; }
   .progress-card h2 { font-size: 22px; }
   .progress-card > p { font-size: 14px; margin-bottom: 16px; }
+
+  /* Results screen on mobile */
+  .result-hero { padding: 22px 18px; gap: 14px; border-radius: 16px; }
+  .result-hero-num { font-size: clamp(56px, 16vw, 80px); }
+  .result-hero-band { font-size: 13px; }
+  .result-hero-tagline { font-size: 14px; }
+  .result-hero-subs { gap: 8px; }
+  .result-hero-subs .sub-score { padding: 12px 6px; }
+  .sub-val { font-size: 26px; }
+  .sub-label { font-size: 11px; }
+
+  .result-video { padding: 16px 14px; border-radius: 16px; }
+  .result-block { padding: 18px 16px; border-radius: 16px; }
+  .result-block-head h2 { font-size: 19px; }
+  .phase-timeline { font-size: 11px; gap: 4px; padding-top: 12px; }
+  .metric-grid { grid-template-columns: 1fr; gap: 10px; }
+  .metric-card { padding: 14px 14px; }
+  .metric-card.metric-priority::before { font-size: 10px; padding: 3px 8px; top: -8px; }
+
+  .expert-panel { padding: 18px 14px; border-radius: 16px; }
+  .fab { right: 14px; bottom: 14px; padding: 10px 14px; font-size: 13px; }
+  .fab-label { display: none; }
+  .fab-icon { font-size: 20px; }
 }
 
 /* ╔═══════════════════════════════════════════════════════════════════════╗

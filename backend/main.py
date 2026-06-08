@@ -397,6 +397,38 @@ def list_feedback():
     return JSONResponse(feedback_mod.all_feedback(FEEDBACK_LOG))
 
 
+# ── Measurement-quality Feedback (about the AI, not the player) ──────────────
+@app.post("/measurement-feedback")
+async def save_measurement_feedback_endpoint(payload: dict = Body(...)):
+    """Append one measurement-quality feedback entry (anonymous)."""
+    try:
+        job_id = payload.get("job_id")
+        if not job_id:
+            raise HTTPException(400, "job_id required")
+        record = feedback_mod.save_measurement_feedback(
+            OUTPUT_DIR,
+            FEEDBACK_LOG,
+            job_id=job_id,
+            metric_ratings=dict(payload.get("metric_ratings", {}) or {}),
+            checkboxes=list(payload.get("checkboxes", []) or []),
+            overall_label=str(payload.get("overall_label", "")),
+            note=str(payload.get("note", "")),
+        )
+        return JSONResponse({"ok": True, "feedback": record})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/measurement-feedback/{job_id}")
+def get_measurement_feedback(job_id: str):
+    return JSONResponse(feedback_mod.measurement_feedback_for_job(FEEDBACK_LOG, job_id))
+
+
+@app.get("/measurement-feedback")
+def list_measurement_feedback():
+    return JSONResponse(feedback_mod.all_measurement_feedback(FEEDBACK_LOG))
+
+
 @app.get("/report/{job_id}", response_class=HTMLResponse)
 def html_report(job_id: str, expert: int = 0):
     """Printable HTML report. expert=1 includes the Expert Feedback section."""
@@ -406,5 +438,6 @@ def html_report(job_id: str, expert: int = 0):
     with open(job_file) as f:
         result = json.load(f)
     fb = feedback_mod.feedback_for_job(FEEDBACK_LOG, job_id) if expert else None
-    html = render_report(result, feedback=fb, expert=bool(expert))
+    mfb = feedback_mod.measurement_feedback_for_job(FEEDBACK_LOG, job_id) if expert else None
+    html = render_report(result, feedback=fb, measurement_feedback=mfb, expert=bool(expert))
     return HTMLResponse(html)

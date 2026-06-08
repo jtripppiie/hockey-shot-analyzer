@@ -187,6 +187,46 @@ for k, n in c.most_common():
 "
 ```
 
+### 🛠️ Measurement Feedback (about the AI, not the player)
+
+Underneath the Expert Feedback form is a second sub-section: **Measurement Feedback**. It answers a *different* question — not "how did the player shoot?" but "how well did the analyzer **measure** this shot?"
+
+This is what gets saved (anonymously — no reviewer name):
+
+- **Per-metric thumbs**: for every metric the AI computed (knee bend, hip rotation, shoulder rotation, weight transfer, follow-through, head stability, release timing), pick 👍 good / 👎 bad / ⊘ didn't measure / — skip.
+- **Overall measurement quality**: Way off · Off · Roughly right · Good · Spot on.
+- **Analyzer flags** (7 hockey-specific checkboxes): pose tracking lost the player, wrong release/load frame detected, camera angle made measurement unreliable, sub-scores don't match what I see, coaching tip irrelevant, analyzer worked well overall.
+- **Optional note** about analyzer behaviour.
+
+Measurement entries land in the **same** `output/feedback_log.jsonl` file but carry `"type": "measurement"` so you can filter cleanly:
+
+```bash
+# Per-metric thumbs-down rate across all measurement feedback:
+python3 -c "
+import json, collections
+thumb = collections.Counter()
+bad = collections.Counter()
+for line in open('output/feedback_log.jsonl'):
+    r = json.loads(line)
+    if r.get('type') != 'measurement': continue
+    for k, v in (r.get('metric_ratings') or {}).items():
+        thumb[k] += 1
+        if v == 'bad': bad[k] += 1
+for k, n in thumb.most_common():
+    print(f'{k:24} {bad[k]:>3}/{n:<3}  thumbs-down rate = {bad[k]/n:.0%}')
+"
+```
+
+Measurement feedback also appears in the **Expert report** (blue panel under the orange Expert Feedback section). It does **not** appear in the player report.
+
+New endpoints:
+
+```
+POST /measurement-feedback               Save one measurement-quality entry
+GET  /measurement-feedback/{job_id}      List measurement entries for a clip
+GET  /measurement-feedback               List all measurement entries
+```
+
 ---
 
 ## Python libraries it installs

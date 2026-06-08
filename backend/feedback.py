@@ -75,6 +75,7 @@ def save_feedback(
 
     record = {
         "feedback_id": uuid.uuid4().hex[:12],
+        "type": "performance",
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "job_id": job_id,
         "clip_filename": filename,
@@ -116,6 +117,7 @@ def save_feedback(
 
 
 def feedback_for_job(log_path: Path, job_id: str) -> list[dict]:
+    """Return performance feedback for one job (legacy records w/o type included)."""
     if not log_path.exists():
         return []
     out: list[dict] = []
@@ -128,7 +130,9 @@ def feedback_for_job(log_path: Path, job_id: str) -> list[dict]:
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if rec.get("job_id") == job_id:
+            if rec.get("job_id") != job_id:
+                continue
+            if rec.get("type", "performance") == "performance":
                 out.append(rec)
     return out
 
@@ -147,3 +151,94 @@ def all_feedback(log_path: Path) -> list[dict]:
             except json.JSONDecodeError:
                 continue
     return out
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Measurement-quality feedback — separate dataset (same file), about how
+# the AI scored / measured / tracked, NOT about the athlete's performance.
+# ───────────────────────────────────────────────────────────────────────────
+
+METRIC_RATINGS = {"good", "bad", "not_measured"}
+
+OVERALL_MEASUREMENT_LABELS = {
+    "way_off", "off", "roughly_right", "good", "spot_on",
+}
+
+# Hockey-specific global checkboxes about analyzer quality.
+MEASUREMENT_CHECKBOX_KEYS = [
+    "pose_lost",
+    "wrong_release_frame",
+    "wrong_load_frame",
+    "camera_unreliable",
+    "subscores_off",
+    "coaching_tip_irrelevant",
+    "analyzer_worked_well",
+]
+
+
+def save_measurement_feedback(
+    output_dir: Path,
+    log_path: Path,
+    *,
+    job_id: str,
+    metric_ratings: dict[str, str],
+    checkboxes: list[str],
+    overall_label: str,
+    note: str,
+) -> dict[str, Any]:
+    """Append one measurement-quality feedback entry. Anonymous."""
+    if overall_label not in OVERALL_MEASUREMENT_LABELS:
+        raise ValueError(
+            f"overall_label must be one of {sorted(OVERALL_MEASUREMENT_LABELS)}."
+        )
+    bad_ratings = {
+        k: v for k, v in (metric_ratings or {}).items()
+        if v not in METRIC_RATINGS
+    }
+    if bad_ratings:
+        raise ValueError(f"Invalid metric ratings: {bad_ratings}")
+    unknown = [c for c in checkboxes if c not in MEASUREMENT_CHECKBOX_KEYS]
+    if unknown:
+        raise ValueError(f"Unknown measurement checkbox keys: {unknown}")
+
+    result = _result_for(output_dir, job_id)
+    ai_summary = (result or {}).get("summary") or {}
+    ai_metrics = (result or {}).get("metrics") or {}
+    filename = (result or {}).get("filename") or ""
+
+    record = {
+        "feedback_id": uuid.uuid4().hex[:12],
+        "type": "measurement",
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "job_id": job_id,
+        "clip_filename": filename,
+        "ai_summary": ai_summary,
+        "ai_metrics": {
+            k: {"score": v.get("score"), "value": v.get("value"), "grade": v.get("grade")}
+            for k, v in ai_metrics.items()
+        },
+        "metric_ratings": {
+            k: v for k, v in (metric_ratings or {}).items()
+            if v in METRIC_RATINGS
+        },
+        "checkboxes": [c for c in MEASUREMENT_CHECKBOX_KEYS if c in checkboxes],
+        "overall_label": overall_label,
+        "note": (note or "").strip(),
+        "app_version": APP_VERSION,
+    }
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
+def measurement_feedback_for_job(log_path: Path, job_id: str) -> list[dict]:
+    return [
+        r for r in all_feedback(log_path)
+        if r.get("job_id") == job_id and r.get("type") == "measurement"
+    ]
+
+
+def all_measurement_feedback(log_path: Path) -> list[dict]:
+    return [r for r in all_feedback(log_path) if r.get("type") == "measurement"]

@@ -37,10 +37,17 @@ def _checkbox_to_label(key: str) -> str:
     return key.replace("_", " ").capitalize()
 
 
+def _thumb(rating: str) -> str:
+    return {"good": "👍 good", "bad": "👎 bad", "not_measured": "⊘ didn't measure"}.get(
+        rating, escape(str(rating))
+    )
+
+
 def render_report(
     result: dict[str, Any],
     *,
     feedback: list[dict] | None = None,
+    measurement_feedback: list[dict] | None = None,
     expert: bool = False,
 ) -> str:
     """Return a self-contained HTML report. Browser → Ctrl+P → Save as PDF."""
@@ -121,6 +128,46 @@ def render_report(
           </section>
         """
 
+    # ── Measurement-feedback block (about the AI, not the player) ──
+    mfb_block = ""
+    if expert and measurement_feedback:
+        cards = []
+        for mfb in measurement_feedback:
+            ratings = mfb.get("metric_ratings") or {}
+            ratings_html = "".join(
+                f"<li><code>{escape(k)}</code> — {_thumb(v)}</li>"
+                for k, v in ratings.items()
+            ) or "<li class='muted'>(no per-metric ratings)</li>"
+            checks = mfb.get("checkboxes") or []
+            checks_html = (
+                "<ul>" + "".join(f"<li>{escape(_checkbox_to_label(c))}</li>" for c in checks) + "</ul>"
+                if checks else "<p class='muted'>(no analyzer flags)</p>"
+            )
+            note = (mfb.get("note") or "").strip()
+            note_html = (
+                f"<blockquote>{escape(note)}</blockquote>" if note else ""
+            )
+            cards.append(f"""
+              <div class='mfb-card'>
+                <div class='fb-head'>
+                  <span class='fb-when'>🕒 {escape(mfb.get("timestamp") or "")}</span>
+                  <span class='fb-by'>overall: <strong>{escape((mfb.get("overall_label") or "—").replace("_", " "))}</strong></span>
+                </div>
+                <h4>Per-metric measurement quality</h4>
+                <ul class='mfb-metrics'>{ratings_html}</ul>
+                <h4>Analyzer flags</h4>
+                {checks_html}
+                {note_html}
+              </div>
+            """)
+        mfb_block = f"""
+          <section class='mfb'>
+            <h2>🛠️ Measurement Feedback ({len(measurement_feedback)} {'entry' if len(measurement_feedback)==1 else 'entries'})</h2>
+            <p class='muted'>Anonymous feedback about how the AI scored / measured / tracked this clip.</p>
+            {''.join(cards)}
+          </section>
+        """
+
     expert_badge = "<span class='expert-badge'>EXPERT MODE</span>" if expert else ""
     style = """
       body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #fff; color: #1a2030; margin: 0; padding: 40px; max-width: 880px; margin: 0 auto; }
@@ -146,11 +193,20 @@ def render_report(
       .fb-val { font-size: 22px; font-weight: 700; }
       .fb-card ul { margin: 6px 0 0 18px; padding: 0; }
       .fb-card blockquote { margin: 6px 0 0; padding: 10px 14px; background: #f6f8fb; border-left: 3px solid #ea580c; border-radius: 4px; white-space: pre-wrap; }
+      .mfb { margin-top: 24px; padding: 24px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 14px; }
+      .mfb h2 { margin-top: 0; }
+      .mfb-card { background: white; padding: 18px; border-radius: 10px; margin-bottom: 14px; border: 1px solid #bfdbfe; }
+      .mfb-metrics { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 16px; }
+      .mfb-metrics li { padding: 4px 0; font-size: 14px; }
+      .mfb-metrics code { background: #f6f8fb; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+      .mfb blockquote { margin: 6px 0 0; padding: 10px 14px; background: #f6f8fb; border-left: 3px solid #2563eb; border-radius: 4px; white-space: pre-wrap; }
       footer { color: #6b7280; font-size: 12px; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e6ee; }
       @media print {
         body { padding: 20px; }
         .expert { break-inside: avoid; }
         .fb-card { break-inside: avoid; }
+        .mfb { break-inside: avoid; }
+        .mfb-card { break-inside: avoid; }
       }
     """
     return f"""<!DOCTYPE html><html lang='en'><head>
@@ -174,5 +230,6 @@ def render_report(
         <tbody>{''.join(metric_rows)}</tbody>
       </table>
       {expert_block}
+      {mfb_block}
       <footer>Hockey Shot Analyzer · generated {escape(datetime.now().strftime('%Y-%m-%d %H:%M'))} · Print → Save as PDF for offline use.</footer>
     </body></html>"""

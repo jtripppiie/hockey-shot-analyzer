@@ -785,3 +785,38 @@ tr:hover td { background: var(--surface2); }
 .fb-prev-note { grid-column: 1 / -1; color: #fef3c7; font-style: italic; padding-top: 4px; }
 .small { font-size: 13px; }
 .muted { color: #94a3b8; }
+
+
+/* ─── Measurement-quality Feedback sub-section ─────────────────────────────
+   Lives inside the same desktop-only Expert panel. The parent .expert-panel
+   already enforces the @media (hover:hover) and (pointer:fine) and
+   (min-width:1024px) gate, so nothing extra needed here. */
+.expert-divider { border: 0; border-top: 1px dashed #57361d; margin: 28px 0 20px; }
+.mfb-section h4 { color: #fed7aa; margin: 0 0 6px; font-size: 16px; }
+.mfb-section .mfb-sub { color: #fdba74; font-weight: 400; font-size: 13px; }
+
+.mfb-metric-grid { display: flex; flex-direction: column; gap: 6px; }
+.mfb-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; background: rgba(0,0,0,.25); border-radius: 8px;
+}
+.mfb-row-label { color: #fef3c7; font-size: 14px; }
+.mfb-row-label .small { font-size: 12px; }
+.mfb-thumbs { display: flex; gap: 4px; }
+.mfb-thumb {
+  cursor: pointer; padding: 4px 10px; border-radius: 6px;
+  background: rgba(255,255,255,.05); border: 1px solid transparent;
+  transition: all .12s ease;
+}
+.mfb-thumb input { display: none; }
+.mfb-thumb span { font-size: 15px; }
+.mfb-thumb:hover { background: rgba(255,255,255,.12); }
+.mfb-thumb:has(input:checked) { background: #ea580c; border-color: #fed7aa; }
+.mfb-thumb.mfb-skip:has(input:checked) { background: rgba(255,255,255,.18); border-color: #57361d; }
+
+.mfb-pill-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.mfb-pill {
+  background: rgba(37, 99, 235, .25); color: #bfdbfe;
+  padding: 2px 8px; border-radius: 10px; font-size: 11px;
+  font-family: ui-monospace, monospace;
+}

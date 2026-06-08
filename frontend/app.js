@@ -769,3 +769,148 @@ renderResults = function(data) {
   _origRenderResults(data);
   _refreshExpertVisibility();
 };
+
+// ── Measurement-quality Feedback (about the AI, not the player) ──────────────
+// Lives inside the same desktop-only Expert panel. Anonymous.
+
+const MFB_CHECKBOXES = [
+  ["pose_lost",              "Pose tracking lost the player"],
+  ["wrong_release_frame",    "Wrong release frame detected"],
+  ["wrong_load_frame",       "Wrong load / stride frame detected"],
+  ["camera_unreliable",      "Camera angle made measurement unreliable"],
+  ["subscores_off",          "Sub-scores don't match what I see"],
+  ["coaching_tip_irrelevant","Coaching tip / drill was irrelevant"],
+  ["analyzer_worked_well",   "Analyzer worked well overall"],
+];
+
+function _buildMeasurementForm() {
+  // Build the analyzer-flag checkboxes once.
+  const flagGrid = document.getElementById("mfbCheckGrid");
+  if (flagGrid && flagGrid.dataset.built !== "1") {
+    flagGrid.innerHTML = MFB_CHECKBOXES.map(([key, label]) =>
+      `<label class='fb-check'><input type='checkbox' value='${key}'>${label}</label>`
+    ).join("");
+    flagGrid.dataset.built = "1";
+  }
+}
+
+function _renderMeasurementMetricGrid() {
+  // (Re)render the per-metric thumbs grid from the current job's metrics.
+  const grid = document.getElementById("mfbMetricGrid");
+  if (!grid) return;
+  const metrics = (currentJob && currentJob.metrics) || {};
+  const keys = Object.keys(metrics);
+  if (!keys.length) {
+    grid.innerHTML = "<p class='muted small'>Analyze a clip to populate metrics.</p>";
+    return;
+  }
+  grid.innerHTML = keys.map(k => {
+    const m = metrics[k] || {};
+    const label = (m.coaching && m.coaching.label) || k.replace(/_/g, " ");
+    const aiScore = (m.score != null) ? `${m.score}/100` : "—";
+    return `
+      <div class='mfb-row' data-metric='${k}'>
+        <span class='mfb-row-label'>${label} <span class='muted small'>(AI: ${aiScore})</span></span>
+        <span class='mfb-thumbs'>
+          <label class='mfb-thumb'><input type='radio' name='mfb_${k}' value='good'><span>👍</span></label>
+          <label class='mfb-thumb'><input type='radio' name='mfb_${k}' value='bad'><span>👎</span></label>
+          <label class='mfb-thumb'><input type='radio' name='mfb_${k}' value='not_measured'><span>⊘</span></label>
+          <label class='mfb-thumb mfb-skip'><input type='radio' name='mfb_${k}' value='' checked><span>—</span></label>
+        </span>
+      </div>
+    `;
+  }).join("");
+}
+
+async function _loadMeasurementHistory(jobId) {
+  const wrap = document.getElementById("mfbHistory");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  if (!jobId) return;
+  try {
+    const rows = await fetch(`/measurement-feedback/${jobId}`).then(r => r.json());
+    if (!rows.length) {
+      wrap.innerHTML = "<p class='muted small'>No measurement feedback for this clip yet.</p>";
+      return;
+    }
+    wrap.innerHTML = `<h4>Previous measurement feedback (${rows.length})</h4>` +
+      rows.slice().reverse().map(r => {
+        const ratings = r.metric_ratings || {};
+        const ratingPills = Object.entries(ratings).map(([k,v]) => {
+          const icon = v === "good" ? "👍" : v === "bad" ? "👎" : "⊘";
+          return `<span class='mfb-pill'>${icon} ${k}</span>`;
+        }).join("");
+        return `
+          <div class='fb-prev'>
+            <span class='fb-prev-when'>${r.timestamp || ""}</span>
+            <span class='fb-prev-by'>overall: <strong>${(r.overall_label || "—").replace(/_/g," ")}</strong></span>
+            <span class='fb-prev-score'>${(r.checkboxes || []).length} flag(s)</span>
+            <div class='mfb-pill-row'>${ratingPills}</div>
+            ${r.note ? `<div class='fb-prev-note'>${r.note.replace(/</g,"&lt;")}</div>` : ""}
+          </div>
+        `;
+      }).join("");
+  } catch (e) { /* ignore */ }
+}
+
+async function submitMeasurementFeedback() {
+  if (!currentJob || !currentJob.job_id) { alert("No analyzed clip in view."); return; }
+
+  // Collect per-metric thumbs (skip rows where user picked "—" or didn't choose)
+  const metric_ratings = {};
+  document.querySelectorAll("#mfbMetricGrid .mfb-row").forEach(row => {
+    const key = row.dataset.metric;
+    const sel = row.querySelector("input[type=radio]:checked");
+    if (sel && sel.value) metric_ratings[key] = sel.value;
+  });
+  const checkboxes = Array.from(
+    document.querySelectorAll("#mfbCheckGrid input:checked")
+  ).map(c => c.value);
+
+  const payload = {
+    job_id: currentJob.job_id,
+    metric_ratings,
+    checkboxes,
+    overall_label: document.getElementById("mfbOverall").value,
+    note: document.getElementById("mfbNote").value,
+  };
+  const status = document.getElementById("mfbStatus");
+  status.textContent = "Saving…"; status.style.color = "var(--muted)";
+  try {
+    const res = await fetch("/measurement-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      status.textContent = "❌ " + (err.detail || res.statusText);
+      status.style.color = "#f85149";
+      return;
+    }
+    status.textContent = "✅ Saved";
+    status.style.color = "#3fb950";
+    // Reset per-metric thumbs to "—" (skip) and clear flags + note
+    document.querySelectorAll("#mfbMetricGrid .mfb-skip input").forEach(r => r.checked = true);
+    document.querySelectorAll("#mfbCheckGrid input").forEach(c => c.checked = false);
+    document.getElementById("mfbNote").value = "";
+    _loadMeasurementHistory(currentJob.job_id);
+    setTimeout(() => { status.textContent = ""; }, 4000);
+  } catch (e) {
+    status.textContent = "❌ " + e.message;
+    status.style.color = "#f85149";
+  }
+}
+
+// Hook into the existing _refreshExpertVisibility so the measurement section
+// also rebuilds when expert mode toggles on after a result is loaded.
+const _origRefreshExpert = _refreshExpertVisibility;
+_refreshExpertVisibility = function() {
+  _origRefreshExpert();
+  _buildMeasurementForm();
+  _renderMeasurementMetricGrid();
+  const on = expertModeEnabled() && _isDesktopExpertCapable();
+  if (on && currentJob) _loadMeasurementHistory(currentJob.job_id);
+};
+
+window.addEventListener("DOMContentLoaded", _buildMeasurementForm);

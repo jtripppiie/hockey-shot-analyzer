@@ -165,6 +165,48 @@
           </div>
 
           <div id="fbHistory" class="fb-history"></div>
+          <hr class="expert-divider">
+
+          <div class="mfb-section">
+            <h4>🛠️ Measurement Feedback <span class="mfb-sub">(about how the AI measured — anonymous)</span></h4>
+            <p class="expert-intro">Different question: was the AI's <em>measurement quality</em> any good? This helps us tune the analyzer. Stored anonymously alongside expert feedback.</p>
+
+            <div class="expert-row">
+              <label class="expert-field">
+                <span>Overall measurement quality</span>
+                <select id="mfbOverall">
+                  <option value="way_off">Way off</option>
+                  <option value="off">Off</option>
+                  <option value="roughly_right" selected>Roughly right</option>
+                  <option value="good">Good</option>
+                  <option value="spot_on">Spot on</option>
+                </select>
+              </label>
+            </div>
+
+            <fieldset class="expert-checks">
+              <legend>Per-metric measurement quality &middot; 👍 good / 👎 bad / ⊘ didn't measure</legend>
+              <div id="mfbMetricGrid" class="mfb-metric-grid"><p class="muted small">Analyze a clip to populate metrics.</p></div>
+            </fieldset>
+
+            <fieldset class="expert-checks">
+              <legend>Analyzer flags (check all that apply)</legend>
+              <div class="expert-checkgrid" id="mfbCheckGrid"></div>
+            </fieldset>
+
+            <label class="expert-field expert-note">
+              <span>Note about analyzer quality (optional)</span>
+              <textarea id="mfbNote" rows="3" placeholder="e.g. The release frame was detected 2 frames late which threw off the follow-through angle."></textarea>
+            </label>
+
+            <div class="expert-actions">
+              <button class="btn-primary" onclick="submitMeasurementFeedback()">💾 Save measurement feedback</button>
+              <span id="mfbStatus" class="fb-status"></span>
+            </div>
+
+            <div id="mfbHistory" class="fb-history"></div>
+          </div>
+
         </div>
       </div>
 

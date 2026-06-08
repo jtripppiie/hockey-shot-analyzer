@@ -57,9 +57,44 @@
     <!-- Progress -->
     <section id="progressSection" class="hidden">
       <div class="progress-card">
-        <div class="spinner"></div>
         <h2 id="progressMsg">Uploading clip…</h2>
         <p>Detecting landmarks and computing your shot score</p>
+
+        <div class="scene scene-hockey" id="progressScene" aria-hidden="true">
+          <div class="scene-rink"></div>
+          <div class="scene-net">
+            <svg viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="6" width="36" height="60" fill="none" stroke="#dc2626" stroke-width="3"/>
+              <path d="M2 6 L8 18 L8 60 L2 66 Z" fill="rgba(255,255,255,0.7)" stroke="#dc2626" stroke-width="1.5"/>
+              <path d="M38 6 L32 18 L32 60 L38 66 Z" fill="rgba(255,255,255,0.7)" stroke="#dc2626" stroke-width="1.5"/>
+              <path d="M8 18 L32 18 L32 60 L8 60 Z" fill="rgba(255,255,255,0.5)"/>
+              <line x1="8" y1="30" x2="32" y2="30" stroke="#9ca3af" stroke-width="0.7"/>
+              <line x1="8" y1="42" x2="32" y2="42" stroke="#9ca3af" stroke-width="0.7"/>
+              <line x1="8" y1="54" x2="32" y2="54" stroke="#9ca3af" stroke-width="0.7"/>
+              <line x1="16" y1="18" x2="16" y2="60" stroke="#9ca3af" stroke-width="0.7"/>
+              <line x1="24" y1="18" x2="24" y2="60" stroke="#9ca3af" stroke-width="0.7"/>
+            </svg>
+          </div>
+          <div class="scene-character">
+            <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+              <line x1="40" y1="50" x2="76" y2="72" stroke="#92400e" stroke-width="3.5" stroke-linecap="round"/>
+              <rect x="71" y="69" width="11" height="5" rx="1" fill="#111" transform="rotate(28 76 72)"/>
+              <path d="M22 18 Q22 7 32 7 Q42 7 42 18 L42 24 L22 24 Z" fill="#1e3a8a"/>
+              <circle cx="32" cy="22" r="6" fill="#fcd5b4"/>
+              <path d="M20 26 L44 26 L48 58 L42 64 L22 64 L16 58 Z" fill="#dc2626"/>
+              <path d="M44 30 L40 50 L40 50" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
+              <path d="M22 30 L18 50 L32 54" stroke="#dc2626" stroke-width="6" fill="none" stroke-linecap="round"/>
+              <line x1="28" y1="64" x2="20" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
+              <line x1="38" y1="64" x2="46" y2="92" stroke="#111" stroke-width="6" stroke-linecap="round"/>
+              <ellipse cx="18" cy="94" rx="7" ry="2" fill="#222"/>
+              <ellipse cx="48" cy="94" rx="7" ry="2" fill="#222"/>
+            </svg>
+          </div>
+          <div class="scene-puck puck-1" aria-hidden="true"></div>
+          <div class="scene-puck puck-2" aria-hidden="true"></div>
+          <div class="scene-puck puck-3" aria-hidden="true"></div>
+        </div>
+
         <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
       </div>
     </section>

@@ -24,23 +24,24 @@ def _joint_color(score: int) -> tuple:
 
 
 def _draw_skeleton(frame: np.ndarray, landmarks, color: tuple) -> None:
-    """Draw connections and joint dots onto a BGR frame in-place."""
+    """Draw connections and joint dots onto a BGR frame in-place.
+
+    Rendered onto a copy and blended back at 65% so the underlying video
+    remains visible through the skeleton."""
     h, w = frame.shape[:2]
-    # All 33 landmarks are in `landmarks` (a list of NormalizedLandmark)
     pts = {i: (int(lm.x * w), int(lm.y * h)) for i, lm in enumerate(landmarks)}
-    # Orange BGR (matches "TripperDee" vibe + high visibility on ice/jerseys)
     line_color = (0, 140, 255)
-    line_thickness = max(3, int(min(w, h) / 240))
-    dot_radius = max(8, int(min(w, h) / 110))
-    # Draw connections
+    line_thickness = max(2, int(min(w, h) / 360))
+    dot_radius = max(3, int(min(w, h) / 240))
+    overlay = frame.copy()
     for a, b in POSE_CONNECTIONS:
         if a in pts and b in pts:
-            cv2.line(frame, pts[a], pts[b], line_color, line_thickness, cv2.LINE_AA)
-    # Draw joints (white outline ring + colored fill for contrast)
+            cv2.line(overlay, pts[a], pts[b], line_color, line_thickness, cv2.LINE_AA)
     for idx in set(i for pair in POSE_CONNECTIONS for i in pair):
         if idx in pts:
-            cv2.circle(frame, pts[idx], dot_radius + 2, (255, 255, 255), -1, cv2.LINE_AA)
-            cv2.circle(frame, pts[idx], dot_radius, color, -1, cv2.LINE_AA)
+            cv2.circle(overlay, pts[idx], dot_radius + 1, (255, 255, 255), -1, cv2.LINE_AA)
+            cv2.circle(overlay, pts[idx], dot_radius, color, -1, cv2.LINE_AA)
+    cv2.addWeighted(overlay, 0.65, frame, 0.35, 0, dst=frame)
 
 
 def _make_image_detector():

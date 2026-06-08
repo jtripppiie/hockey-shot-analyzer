@@ -160,15 +160,6 @@ main { max-width: 1400px; margin: 0 auto; padding: 32px 20px; }
   border-radius: var(--radius);
   padding: 60px 40px;
 }
-.spinner {
-  width: 52px; height: 52px;
-  border: 5px solid var(--border);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-  margin: 0 auto 24px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 .progress-bar {
   background: var(--border);
   border-radius: 99px;
@@ -182,6 +173,81 @@ main { max-width: 1400px; margin: 0 auto; padding: 32px 20px; }
   border-radius: 99px;
   width: 0%;
   transition: width 0.4s ease;
+}
+
+/* ── Animated hockey scene ──────────────────────────────────────────── */
+.scene {
+  position: relative;
+  height: 160px;
+  margin: 28px auto 8px;
+  max-width: 640px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #f0f9ff 0%, #e0f2fe 55%, #dbeafe 56%, #bfdbfe 100%);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.04);
+}
+.scene-rink {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 48%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(59, 130, 246, 0.08) 0 40px,
+      transparent 40px 80px
+    ),
+    linear-gradient(to bottom, #e0f2fe 0%, #cfe8fb 100%);
+  border-top: 2px solid #93c5fd;
+}
+.scene-net {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 56px;
+  height: 88px;
+  z-index: 1;
+}
+.scene-net svg { width: 100%; height: 100%; }
+.scene-character {
+  position: absolute;
+  left: 18px;
+  bottom: 10px;
+  width: 64px;
+  height: 96px;
+  z-index: 3;
+  transform-origin: 50% 100%;
+  animation: hockey-sway 0.9s ease-in-out infinite;
+}
+.scene-character svg { width: 100%; height: 100%; }
+@keyframes hockey-sway {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-3px) rotate(-2deg); }
+}
+.scene-puck {
+  position: absolute;
+  left: 78px;
+  bottom: 58px;
+  width: 22px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 30% 40%, #4b5563 0%, #111 70%);
+  box-shadow:
+    -10px 0 0 -2px rgba(17, 17, 17, 0.35),
+    -18px 0 0 -3px rgba(17, 17, 17, 0.2);
+  z-index: 2;
+  opacity: 0;
+  animation: puck-shoot 1.8s linear infinite;
+}
+.scene-puck.puck-1 { animation-delay: 0s;   }
+.scene-puck.puck-2 { animation-delay: 0.6s; }
+.scene-puck.puck-3 { animation-delay: 1.2s; }
+@keyframes puck-shoot {
+  0%   { transform: translateX(0)     translateY(0)    scale(1);    opacity: 0; }
+  8%   { opacity: 1; }
+  60%  { transform: translateX(360px) translateY(-6px) scale(0.95); opacity: 1; }
+  88%  { transform: translateX(500px) translateY(10px) scale(0.9);  opacity: 1; }
+  100% { transform: translateX(520px) translateY(14px) scale(0.85); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-character, .scene-puck { animation: none; }
 }
 
 /* ── Results top ── */

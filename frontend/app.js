@@ -210,6 +210,8 @@ async function _submitAnalyze(endpoint, form, initialMsg) {
     if (fakePct < 85) {
       fakePct += (85 - fakePct) * 0.04;
       document.getElementById("progressFill").style.width = fakePct + "%";
+      const sc = document.getElementById("progressScene");
+      if (sc) sc.style.setProperty("--pct", fakePct + "%");
     }
   }, 800);
   let data;
@@ -248,6 +250,8 @@ async function _submitAnalyze(endpoint, form, initialMsg) {
 
 function setProgress(pct, msg) {
   document.getElementById("progressFill").style.width = pct + "%";
+  const sc = document.getElementById("progressScene");
+  if (sc) sc.style.setProperty("--pct", pct + "%");
   document.getElementById("progressMsg").textContent = msg;
 }
 

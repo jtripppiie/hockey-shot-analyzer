@@ -297,19 +297,24 @@ def render_session_report(summary: dict[str, Any]) -> str:
         + _avg_cell("⚡ Timing", "timing")
     )
 
-    # TODO(Phase 2): render trend lines / sparklines from `trends` once
-    # summarize_session computes them (e.g. first-vs-last delta per metric).
+    # First-vs-last deltas per metric, plus most-improved / needs-work highlights.
+    _trend_labels = {
+        "overall": "Overall", "power": "💪 Power", "technique": "🎯 Technique",
+        "timing": "⚡ Timing", "most_improved": "⭐ Most improved",
+        "needs_work": "🔧 Needs work",
+    }
     if trends:
         trend_items = "".join(
-            f"<li><code>{escape(str(k))}</code> — {escape(str(v))}</li>"
+            f"<li><code>{escape(_trend_labels.get(k, str(k).replace('_', ' ').title()))}</code>"
+            f" — {escape(str(v))}</li>"
             for k, v in trends.items()
         )
         trends_html = f"<h2>Trends</h2><ul class='trends'>{trend_items}</ul>"
     else:
         trends_html = (
             "<h2>Trends</h2>"
-            "<p class='muted'>Trend analysis not computed yet "
-            "(session.summarize_session is stubbed — ROADMAP Phase 2).</p>"
+            "<p class='muted'>Record at least two attempts to see trends "
+            "across the session.</p>"
         )
 
     style = """

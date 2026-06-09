@@ -98,14 +98,29 @@ def delete_session(session_id: str) -> bool:
     return True
 
 
+def _mean_round(vals: list) -> "int | None":
+    """Mean of the numeric values, rounded to int. None if no numbers."""
+    nums = [v for v in vals if isinstance(v, (int, float))]
+    if not nums:
+        return None
+    return round(sum(nums) / len(nums))
+
+
 def summarize_session(session: dict, jobs: list[dict]) -> dict:
     """Aggregate per-attempt results into a session-level summary.
 
     `jobs` is the list of {job_id}_result.json dicts for this session's job_ids,
     in attempt order.
 
-    SKELETON — returns the shape the session report will consume, but the trend
-    math is stubbed. Fill in during Phase 2/4.
+    Sport-agnostic: the sub-score keys (e.g. power/technique/timing, or
+    approach/takeoff/bar_work) are discovered from the attempts themselves, so
+    the same code drives both the hockey and pole-vault session reports.
+
+    Produces:
+      averages — mean of `overall` + each numeric sub-score across attempts.
+      trends   — first-vs-last delta per metric (rendered as readable strings),
+                 plus `most_improved` / `needs_work` highlights when there are
+                 at least two attempts to compare.
     """
     attempts = [
         {
@@ -117,16 +132,54 @@ def summarize_session(session: dict, jobs: list[dict]) -> dict:
         for j in jobs
     ]
 
-    # TODO(Phase 2): compute averages across attempts (overall + each sub-score).
-    # TODO(Phase 2): compute per-metric trend (slope / first-vs-last delta) so the
-    #   report can say "release timing improved across reps 1→N".
-    # TODO(Phase 2): flag best / worst attempt and most-improved metric.
+    # Discover sub-score keys in first-seen order (skip `overall`; it's handled
+    # separately so it always sorts first in the report).
+    sub_keys: list[str] = []
+    for a in attempts:
+        for k, v in (a["summary"] or {}).items():
+            if k != "overall" and isinstance(v, (int, float)) and k not in sub_keys:
+                sub_keys.append(k)
+
+    def _series(key: str) -> list:
+        if key == "overall":
+            return [a["overall"] for a in attempts]
+        return [(a["summary"] or {}).get(key) for a in attempts]
+
+    # Averages — only include metrics that have at least one numeric value.
+    averages: dict[str, int] = {}
+    for key in ["overall", *sub_keys]:
+        m = _mean_round(_series(key))
+        if m is not None:
+            averages[key] = m
+
+    # Trends — first-vs-last delta per metric (needs >= 2 numeric points).
+    trends: dict[str, str] = {}
+    deltas: dict[str, int] = {}
+    for key in ["overall", *sub_keys]:
+        nums = [v for v in _series(key) if isinstance(v, (int, float))]
+        if len(nums) >= 2:
+            first, last = round(nums[0]), round(nums[-1])
+            d = last - first
+            arrow = "▲" if d > 0 else ("▼" if d < 0 else "—")
+            trends[key] = f"{arrow} {d:+d} ({first} → {last})"
+            deltas[key] = d
+
+    # Highlight the most-improved / most-regressed SUB-score (exclude overall).
+    sub_deltas = {k: deltas[k] for k in sub_keys if k in deltas}
+    if sub_deltas:
+        best = max(sub_deltas, key=sub_deltas.get)
+        worst = min(sub_deltas, key=sub_deltas.get)
+        if sub_deltas[best] > 0:
+            trends["most_improved"] = f"{best.replace('_', ' ')} ({sub_deltas[best]:+d})"
+        if sub_deltas[worst] < 0:
+            trends["needs_work"] = f"{worst.replace('_', ' ')} ({sub_deltas[worst]:+d})"
+
     return {
         "session_id":   session["session_id"],
         "label":        session.get("label"),
         "created":      session.get("created"),
         "attempt_count": len(attempts),
         "attempts":     attempts,
-        "averages":     {},     # TODO
-        "trends":       {},     # TODO
+        "averages":     averages,
+        "trends":       trends,
     }

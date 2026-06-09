@@ -31,8 +31,9 @@ from metrics import compute_metrics
 from overlay import extract_key_frame, render_overlay
 from pose import get_video_meta, run_pose_detection
 import feedback as feedback_mod
-from report import render_report
-
+from report import render_report, render_session_report
+import session as session_mod
+from segmenter import suggest_segments
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
@@ -304,6 +305,99 @@ def clear_history():
     if HISTORY_CSV.exists():
         HISTORY_CSV.unlink()
     return {"cleared": True}
+
+
+# ── Multi-rep sessions (SKELETON) ─────────────────────────────────────────────
+# Group several analyzed attempts into one session + (eventually) a combined
+# session report with per-rep scores and trends.
+# See docs/ROADMAP-live-capture-session-report.md (Phase 2/3) and session.py /
+# segmenter.py. These routes are wired and usable; the analytics + segmentation
+# they lean on are still stubbed.
+
+@app.post("/session")
+def create_session(label: str = Form("")):
+    """Create a new, empty multi-rep session."""
+    return session_mod.create_session(label)
+
+
+@app.get("/sessions")
+def list_sessions():
+    """List all sessions, newest first."""
+    return session_mod.list_sessions()
+
+
+@app.get("/session/{session_id}")
+def get_session(session_id: str):
+    s = session_mod.load_session(session_id)
+    if s is None:
+        raise HTTPException(404, "Session not found")
+    return s
+
+
+@app.post("/session/{session_id}/attempt")
+def add_session_attempt(session_id: str, job_id: str = Form(...)):
+    """Attach an already-analyzed attempt (job) to a session.
+
+    Phase 2 flow: the client analyzes each trimmed segment via /analyze as usual,
+    then registers the resulting job_id here in attempt order.
+    """
+    s = session_mod.add_job(session_id, job_id)
+    if s is None:
+        raise HTTPException(404, "Session not found")
+    return s
+
+
+@app.post("/session/{session_id}/segment")
+def segment_session(session_id: str, job_id: str = Form(...)):
+    """Suggest cut windows for a long recording (Phase 3 auto-splice).
+
+    Takes the job_id of an analyzed *full stream* and returns suggested
+    [start, end] frame windows for each detected attempt. SKELETON: returns
+    suggestions only — a human confirms/adjusts before each window is trimmed and
+    analyzed. The segmenter's peak-picking is not yet tuned (see segmenter.py).
+    """
+    if session_mod.load_session(session_id) is None:
+        raise HTTPException(404, "Session not found")
+    # TODO(Phase 3): locate the stream's source video for this job_id. For now we
+    # re-run pose on the stored upload; later, cache landmarks from the original
+    # analysis instead of recomputing.
+    stream_src = UPLOAD_DIR / f"{job_id}.mp4"
+    if not stream_src.exists():
+        raise HTTPException(404, "Stream video not found for job")
+    meta = get_video_meta(str(stream_src))
+    frames = run_pose_detection(str(stream_src))
+    windows = suggest_segments(frames, meta["fps"], meta["total_frames"])
+    return {"session_id": session_id, "fps": meta["fps"],
+            "total_frames": meta["total_frames"], "suggested": windows}
+
+
+@app.get("/session/{session_id}/report")
+def session_report(session_id: str, format: str = "json"):
+    """Aggregate the session's attempts into a session-level summary.
+
+    SKELETON: returns the summarize_session() shape (attempts + stubbed
+    averages/trends). ``?format=html`` renders the printable session report.
+    """
+    s = session_mod.load_session(session_id)
+    if s is None:
+        raise HTTPException(404, "Session not found")
+    jobs = []
+    for jid in s.get("job_ids", []):
+        jf = OUTPUT_DIR / f"{jid}_result.json"
+        if jf.exists():
+            with open(jf) as f:
+                jobs.append(json.load(f))
+    summary = session_mod.summarize_session(s, jobs)
+    if format == "html":
+        return HTMLResponse(render_session_report(summary))
+    return summary
+
+
+@app.delete("/session/{session_id}")
+def delete_session(session_id: str):
+    if not session_mod.delete_session(session_id):
+        raise HTTPException(404, "Session not found")
+    return {"deleted": session_id}
 
 
 def _remove_from_csv(job_id: str):

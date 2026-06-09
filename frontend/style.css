@@ -1998,3 +1998,45 @@ body.modal-open { overflow: hidden; }
     transition-duration: 0.05ms !important;
   }
 }
+
+/* ─── In-app camera capture (SKELETON, Phase 1) ─────────────────────────────
+   State-driven visibility via [data-cam-state] on #cameraPanel. The camera.js
+   module flips the attribute between idle / ready / recording / processing. */
+.camera-panel { margin-top: 14px; text-align: center; }
+.camera-panel .cam-preview {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  margin: 12px auto 0;
+  border-radius: 10px;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.camera-panel .cam-controls {
+  display: none;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.camera-panel .cam-start,
+.camera-panel .cam-stop,
+.camera-panel .cam-cancel,
+.camera-panel .cam-open { display: none; }
+
+/* idle: only the "Record with camera" entry button */
+.camera-panel[data-cam-state="idle"] .cam-open { display: inline-flex; }
+
+/* ready: live preview + Record + Cancel */
+.camera-panel[data-cam-state="ready"] .cam-preview,
+.camera-panel[data-cam-state="recording"] .cam-preview { display: block; }
+.camera-panel[data-cam-state="ready"] .cam-controls,
+.camera-panel[data-cam-state="recording"] .cam-controls { display: flex; }
+.camera-panel[data-cam-state="ready"] .cam-start,
+.camera-panel[data-cam-state="ready"] .cam-cancel { display: inline-flex; }
+
+/* recording: Stop + Cancel */
+.camera-panel[data-cam-state="recording"] .cam-stop,
+.camera-panel[data-cam-state="recording"] .cam-cancel { display: inline-flex; }
+.camera-panel[data-cam-state="recording"] .cam-start { display: none; }
+

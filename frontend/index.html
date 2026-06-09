@@ -84,6 +84,21 @@
               <button class="btn-primary" type="button" onclick="document.getElementById('fileInput').click()">Choose Video</button>
             </div>
 
+            <!-- In-app camera capture (SKELETON, Phase 1). Hidden until opened. -->
+            <div id="cameraPanel" class="camera-panel" data-cam-state="idle">
+              <button class="btn-secondary cam-open" type="button"
+                      onclick="window.HockeyCamera && window.HockeyCamera.open()">🎥 Record with camera</button>
+              <video id="camPreview" class="cam-preview" muted playsinline></video>
+              <div class="cam-controls">
+                <button class="btn-primary cam-start" type="button"
+                        onclick="window.HockeyCamera.start()">● Record</button>
+                <button class="btn-primary cam-stop" type="button"
+                        onclick="window.HockeyCamera.stop()">■ Stop &amp; analyze</button>
+                <button class="btn-secondary cam-cancel" type="button"
+                        onclick="window.HockeyCamera.cancel()">Cancel</button>
+              </div>
+            </div>
+
             <div class="upload-zone-or" aria-hidden="true"><span>or</span></div>
 
             <div class="upload-zone-youtube">
@@ -510,5 +525,6 @@
   </div>
 
   <script src="/static/app.js?v=settings-tips-1"></script>
+  <script src="/static/camera.js?v=camera-skeleton-1"></script>
 </body>
 </html>

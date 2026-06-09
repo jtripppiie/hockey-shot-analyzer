@@ -206,7 +206,34 @@ def _detect_phases(frames: list[dict], dom: str | None, fps: float) -> dict:
             wrist_xy.append((f["frame"], w[0], w[1]))
 
     # ── 1. Release = peak wrist speed (central difference) ─────────────
+    # First drop single-frame landmark teleports: a wrist point that sits far
+    # off the straight line between its neighbours is tracking noise, not real
+    # motion, and would otherwise spike the speed and steal the release. Then
+    # the release is the peak of a short moving average of wrist speed, so the
+    # sustained true release wins over any residual jitter.
     release_idx = None
+    ABS_TELEPORT = 0.12  # normalized: >12% of frame off the neighbour midline = noise
+    if len(wrist_xy) >= 3:
+        resid = []
+        for k in range(1, len(wrist_xy) - 1):
+            _, xp, yp = wrist_xy[k-1]
+            _, xn, yn = wrist_xy[k+1]
+            _, xk, yk = wrist_xy[k]
+            mx, my = (xp + xn) / 2, (yp + yn) / 2
+            resid.append(math.hypot(xk - mx, yk - my))
+        srt = sorted(resid)
+        med_r = srt[len(srt) // 2]
+        mad_r = sorted(abs(r - med_r) for r in resid)[len(resid) // 2]
+        thr_stat = med_r + 6.0 * mad_r if mad_r > 0 else float("inf")
+        clean = [wrist_xy[0]]
+        for k in range(1, len(wrist_xy) - 1):
+            r = resid[k-1]
+            if r > ABS_TELEPORT or r > thr_stat:
+                continue  # teleport — skip this point
+            clean.append(wrist_xy[k])
+        clean.append(wrist_xy[-1])
+        wrist_xy = clean
+
     if len(wrist_xy) >= 3:
         speeds = []
         for k in range(1, len(wrist_xy) - 1):
@@ -216,7 +243,13 @@ def _detect_phases(frames: list[dict], dom: str | None, fps: float) -> dict:
             speed = math.hypot(xn - xp, yn - yp) / dt
             speeds.append((wrist_xy[k][0], speed))
         if speeds:
-            release_idx = max(speeds, key=lambda t: t[1])[0]
+            vals = [s for _, s in speeds]
+            smoothed = []
+            for k in range(len(vals)):
+                lo = max(0, k - 1); hi = min(len(vals), k + 2)
+                smoothed.append(sum(vals[lo:hi]) / (hi - lo))
+            best_k = max(range(len(smoothed)), key=lambda k: smoothed[k])
+            release_idx = speeds[best_k][0]
 
     # ── 2. Load = deepest knee bend BEFORE release ─────────────────────
     load_idx = None
@@ -241,23 +274,35 @@ def _detect_phases(frames: list[dict], dom: str | None, fps: float) -> dict:
 # Each returns (value_or_None, score_or_None, reason_if_unmeasured)
 
 def _measure_knee_bend(frames, dom, phases):
-    """Knee angle at load (degrees). Smaller = deeper bend. Ideal 80–100°.
+    """Deepest knee bend (degrees) during the load→release window. Smaller =
+    deeper bend. Ideal 80–105°.
 
-    Computed from MediaPipe **world** landmarks (hip-centred meters) so the
-    angle is the true joint angle rather than its projection in the image
+    Restricting to the load→release window keeps a deep crouch during the
+    follow-through stride (or a post-shot squat) from being scored as the
+    load. Computed from MediaPipe **world** landmarks (hip-centred meters) so
+    the angle is the true joint angle rather than its projection in the image
     plane — robust to camera yaw / tilt."""
     if dom is None or phases["load"] is None:
         return None, None, "Couldn't find the load phase"
+    load_i = phases["load"]
+    rel_i = phases["release"]
+
+    def _in_window(i):
+        return i >= load_i and (rel_i is None or i <= rel_i)
+
     angles = []
+    window_frames = 0
     for f in frames:
+        if not _in_window(f["frame"]): continue
+        window_frames += 1
         lm = f["landmarks"]
         if not lm: continue
         hip = lm.get(f"{dom}_hip"); knee = lm.get(f"{dom}_knee"); ankle = lm.get(f"{dom}_ankle")
         if not (hip and knee and ankle): continue
         angles.append(angle_3pts_3d(hip, knee, ankle))
-    coverage = len(angles) / max(1, len(frames))
-    if coverage < MIN_VISIBLE_FRACTION:
-        return None, None, f"Knees only visible in {int(coverage*100)}% of frames"
+    coverage = len(angles) / max(1, window_frames)
+    if not angles or coverage < MIN_VISIBLE_FRACTION:
+        return None, None, f"Knees only visible in {int(coverage*100)}% of the shot window"
     val = float(min(angles))
     # Ideal 80-105°, hard 50° and 160°
     score = _score_band(val, 80, 105, 50, 160)

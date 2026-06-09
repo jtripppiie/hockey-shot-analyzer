@@ -150,3 +150,21 @@ def recent_errors(limit: int = 50, log_path: Path | None = None) -> list[dict]:
         if len(out) >= limit:
             break
     return out
+
+
+def clear_errors(log_path: Path | None = None) -> int:
+    """Delete the error log and return how many entries were removed.
+    Never raises; returns 0 if the log is missing or can't be read/removed."""
+    path = log_path or ERROR_LOG
+    if not path.exists():
+        return 0
+    try:
+        with open(path) as f:
+            count = sum(1 for line in f if line.strip())
+    except OSError:
+        count = 0
+    try:
+        path.unlink()
+    except OSError:
+        return 0
+    return count

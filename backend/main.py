@@ -34,7 +34,7 @@ import feedback as feedback_mod
 from report import render_report, render_session_report
 import session as session_mod
 from segmenter import suggest_segments
-from errors import log_error, recent_errors
+from errors import log_error, recent_errors, clear_errors
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
@@ -280,6 +280,25 @@ def _download_youtube_clip(url: str, out_path: str, start_sec, end_sec) -> str:
             os.replace(str(actual), out_path)
 
     return title
+
+
+def _trim_clip(src: str, dst: str, start_sec: float, end_sec: float) -> None:
+    """Trim [start_sec, end_sec] out of src into dst, re-encoding for
+    frame-accurate cuts. Raises RuntimeError if ffmpeg fails."""
+    dur = max(0.1, end_sec - start_sec)
+    result = subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-ss", f"{start_sec:.3f}",
+            "-i", src,
+            "-t", f"{dur:.3f}",
+            "-c:v", "libx264", "-preset", "veryfast", "-an",
+            dst,
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not Path(dst).exists():
+        raise RuntimeError(f"ffmpeg trim failed: {result.stderr[-300:]}")
 
 
 @app.get("/history")
@@ -615,5 +634,105 @@ async def client_error(payload: dict = Body(...)):
 def get_errors(limit: int = 50):
     """Return the most recent logged errors (newest first) for review."""
     return recent_errors(limit)
+
+
+@app.post("/errors/clear")
+def clear_error_log():
+    """Delete the error log. Returns how many entries were removed."""
+    removed = clear_errors()
+    return JSONResponse({"ok": True, "removed": removed})
+
+
+# ── Multi-attempt segmenting ─────────────────────────────────────────────────
+def _sweep_old_multi(max_age_s: int = 3600) -> None:
+    """Best-effort cleanup of cached multi-rep sources older than max_age_s."""
+    now = time.time()
+    for p in UPLOAD_DIR.glob("*_multi.*"):
+        try:
+            if now - p.stat().st_mtime > max_age_s:
+                p.unlink()
+        except OSError:
+            pass
+
+
+@app.post("/suggest-segments")
+async def suggest_segments_route(file: UploadFile = File(...)):
+    """Run pose detection on a multi-attempt clip and return suggested cut
+    windows (in seconds). The source is cached so each suggested attempt can be
+    analyzed via /analyze-segment without re-uploading."""
+    allowed = {".mp4", ".mov", ".avi", ".mkv"}
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in allowed:
+        raise HTTPException(400, f"Unsupported file type: {suffix}")
+
+    _sweep_old_multi()
+    seg_job = uuid.uuid4().hex[:10]
+    src = UPLOAD_DIR / f"{seg_job}_multi{suffix}"
+    with open(src, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    try:
+        meta = get_video_meta(str(src))
+        fps = meta.get("fps") or 0
+        total = meta.get("total_frames") or 0
+        if total < 10 or fps <= 0:
+            raise HTTPException(422, "video_unreadable")
+        frames = run_pose_detection(str(src))
+        windows = suggest_segments(frames, fps, total)
+        segments = [{
+            "index":      i,
+            "start_sec":  round(w["start"] / fps, 2),
+            "end_sec":    round(w["end"] / fps, 2),
+            "event_sec":  round(w["event"] / fps, 2),
+            "confidence": round(float(w.get("confidence", 0.0)), 3),
+        } for i, w in enumerate(windows)]
+        return JSONResponse({
+            "seg_job":  seg_job,
+            "filename": file.filename,
+            "fps":      fps,
+            "duration": round(total / fps, 2),
+            "count":    len(segments),
+            "segments": segments,
+        })
+    except HTTPException:
+        if src.exists():
+            src.unlink()
+        raise
+    except Exception as e:
+        if src.exists():
+            src.unlink()
+        log_error("suggest_segments", e, context={"filename": file.filename})
+        raise HTTPException(500, "server_error")
+
+
+@app.post("/analyze-segment")
+async def analyze_segment(
+    seg_job: str = Form(...),
+    start_sec: float = Form(...),
+    end_sec: float = Form(...),
+    label: str = Form(""),
+):
+    """Trim one suggested attempt out of a cached multi-rep source and analyze
+    it as its own clip."""
+    safe = re.sub(r"[^a-zA-Z0-9_-]", "", seg_job)[:32]
+    if not safe:
+        raise HTTPException(400, "Invalid seg_job")
+    matches = sorted(UPLOAD_DIR.glob(f"{safe}_multi.*"))
+    if not matches:
+        raise HTTPException(404, "segment_source_expired")
+    if end_sec <= start_sec:
+        raise HTTPException(400, "End time must be after start time")
+
+    src = matches[0]
+    job_id = uuid.uuid4().hex[:10]
+    trimmed = UPLOAD_DIR / f"{job_id}{src.suffix}"
+    display_name = label.strip() or f"Attempt @ {start_sec:.0f}s"
+    try:
+        _trim_clip(str(src), str(trimmed), float(start_sec), float(end_sec))
+        return _analyze_video(str(trimmed), display_name, job_id)
+    finally:
+        if trimmed.exists():
+            trimmed.unlink()
+
 
 

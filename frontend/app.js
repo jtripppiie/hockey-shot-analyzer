@@ -269,6 +269,114 @@ fileInput.addEventListener("change", () => {
   if (fileInput.files[0]) uploadFile(fileInput.files[0]);
 });
 
+// ── Multi-attempt segmenter ──────────────────────────────────────────────────
+let segJob = null;
+let segData = null;
+const segFileInput = document.getElementById("segFileInput");
+if (segFileInput) {
+  segFileInput.addEventListener("change", () => {
+    if (segFileInput.files[0]) findSegments(segFileInput.files[0]);
+    segFileInput.value = "";
+  });
+}
+
+async function findSegments(file) {
+  showSection("progressSection");
+  setProgress(15, "Scanning clip for attempts…");
+  let fakePct = 15;
+  const fakeTimer = setInterval(() => {
+    if (fakePct < 85) {
+      fakePct += (85 - fakePct) * 0.04;
+      document.getElementById("progressFill").style.width = fakePct + "%";
+    }
+  }, 800);
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
+    const resp = await fetch(`${API}/suggest-segments`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    clearInterval(fakeTimer);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: "server_error" }));
+      showError(err.detail || "server_error");
+      resetUI();
+      return;
+    }
+    segData = await resp.json();
+    segJob = segData.seg_job;
+  } catch (e) {
+    clearInterval(fakeTimer);
+    showError(e.name === "AbortError" ? "video_too_long" : "server_error");
+    resetUI();
+    return;
+  }
+  setProgress(100, "Done!");
+  setTimeout(renderSegments, 250);
+}
+
+function renderSegments() {
+  const list = document.getElementById("segmentsList");
+  const lede = document.getElementById("segmentsLede");
+  if (!list) return;
+  const segs = (segData && Array.isArray(segData.segments)) ? segData.segments : [];
+  list.innerHTML = "";
+  if (segs.length === 0) {
+    if (lede) lede.textContent = "We couldn’t confidently find separate attempts in that clip. Try analyzing it as a single shot, or upload a clearer multi-shot clip.";
+    const back = document.createElement("button");
+    back.className = "btn-primary";
+    back.textContent = "Back to Upload";
+    back.onclick = showUpload;
+    list.appendChild(back);
+    showSection("segmentsSection");
+    return;
+  }
+  if (lede) lede.textContent = `Found ${segs.length} likely attempt${segs.length === 1 ? "" : "s"} in ${segData.filename || "your clip"}. Pick one to analyze it on its own. Suggestions are approximate.`;
+  segs.forEach((s, i) => {
+    const card = document.createElement("div");
+    card.className = "segment-card";
+    const conf = Math.round((s.confidence || 0) * 100);
+    card.innerHTML = `
+      <div class="segment-info">
+        <div class="segment-title">Attempt ${i + 1}</div>
+        <div class="segment-meta">${_fmtTime(s.start_sec)} – ${_fmtTime(s.end_sec)} &middot; ${(s.end_sec - s.start_sec).toFixed(1)}s</div>
+        <div class="segment-conf"><span class="segment-conf-bar"><span style="width:${conf}%"></span></span><span class="segment-conf-label">${conf}% confidence</span></div>
+      </div>`;
+    const btn = document.createElement("button");
+    btn.className = "btn-primary small";
+    btn.textContent = "Analyze this attempt";
+    btn.onclick = () => analyzeSegment(i, btn);
+    card.appendChild(btn);
+    list.appendChild(card);
+  });
+  showSection("segmentsSection");
+}
+
+function _fmtTime(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+async function analyzeSegment(index, btn) {
+  if (!segJob || !segData) { showError("segment_source_expired"); return; }
+  const seg = segData.segments[index];
+  if (!seg) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Analyzing…"; }
+  const form = new FormData();
+  form.append("seg_job", segJob);
+  form.append("start_sec", seg.start_sec);
+  form.append("end_sec", seg.end_sec);
+  form.append("label", `Attempt ${index + 1}`);
+  await _submitAnalyze("/analyze-segment", form, `Analyzing attempt ${index + 1}…`);
+}
+
 // ── Window-wide drag/drop (works from results & history pages) ───────────────
 const winOverlay = document.getElementById("windowDragOverlay");
 let dragCounter = 0;
@@ -444,6 +552,21 @@ async function loadErrors() {
   } catch (e) {
     if (status) status.textContent = "Couldn't load errors.";
     list.innerHTML = `<p class="muted">Error log unavailable (${escapeHtml(String(e.message || e))}).</p>`;
+  }
+}
+
+async function clearErrors() {
+  const status = document.getElementById("diagStatus");
+  if (!confirm("Delete the entire error log? This can't be undone.")) return;
+  if (status) status.textContent = "Clearing…";
+  try {
+    const res = await fetch(`${API}/errors/clear`, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (status) status.textContent = `Cleared ${data.removed || 0} entr${(data.removed === 1) ? "y" : "ies"}.`;
+    loadErrors();
+  } catch (e) {
+    if (status) status.textContent = "Couldn't clear the log.";
   }
 }
 
@@ -1161,7 +1284,7 @@ function escapeHtml(s) {
 
 // ── Navigation helpers ────────────────────────────────────────────────────────
 function showSection(id) {
-  ["uploadSection","progressSection","resultsSection","historySection","sessionsSection"]
+  ["uploadSection","progressSection","resultsSection","historySection","sessionsSection","segmentsSection"]
     .forEach(s => document.getElementById(s).classList.toggle("hidden", s !== id));
   document.body.dataset.screen = id.replace("Section", "");
   if (id !== "resultsSection") expertModeOn = false;

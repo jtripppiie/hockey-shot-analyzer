@@ -2124,4 +2124,30 @@ body.modal-open { overflow: hidden; }
   overflow-x: auto; white-space: pre-wrap; word-break: break-word; max-height: 220px;
 }
 
+/* ─── Multi-attempt segmenter ──────────────────────────────────────────── */
+.multi-entry { margin-top: 14px; text-align: center; }
+.btn-link.multi-entry-btn {
+  background: none; border: none; cursor: pointer; padding: 6px 4px;
+  font: inherit; color: var(--l-text-soft, #6b7280); font-size: 0.875rem;
+}
+.btn-link.multi-entry-btn strong { color: var(--l-accent, #2563eb); }
+.btn-link.multi-entry-btn:hover { color: var(--l-text, #1f2937); }
+
+.segments-list { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+.segment-card {
+  display: flex; align-items: center; gap: 16px;
+  border: 1px solid var(--l-border, #e2e6ee); border-radius: 12px;
+  padding: 16px 18px; background: #fff;
+}
+.segment-info { flex: 1; min-width: 0; }
+.segment-title { font-weight: 700; font-size: 1rem; }
+.segment-meta { color: var(--l-text-soft, #6b7280); font-size: 0.875rem; margin-top: 2px; }
+.segment-conf { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.segment-conf-bar {
+  display: inline-block; width: 120px; height: 6px; border-radius: 3px;
+  background: var(--l-border, #e2e6ee); overflow: hidden;
+}
+.segment-conf-bar > span { display: block; height: 100%; background: var(--l-accent, #2563eb); }
+.segment-conf-label { font-size: 0.75rem; color: var(--l-text-soft, #6b7280); }
+.btn-primary.small { padding: 8px 14px; font-size: 0.875rem; white-space: nowrap; }
 

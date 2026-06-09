@@ -122,6 +122,13 @@
             </div>
           </div>
 
+          <div class="multi-entry">
+            <input type="file" id="segFileInput" accept="video/mp4,video/quicktime,video/avi" hidden />
+            <button class="btn-link multi-entry-btn" type="button" onclick="document.getElementById('segFileInput').click()">
+              Got several shots in one clip? <strong>Find attempts →</strong>
+            </button>
+          </div>
+
         </div>
 
         <!-- Side-by-side meta -->
@@ -466,6 +473,25 @@
       </div>
     </section>
 
+    <section id="segmentsSection" class="hidden screen screen-light">
+      <header class="topbar topbar-light">
+        <div class="topbar-brand">
+          <img src="/static/assets/hockey-player.png" class="brand-mark" alt="Hockey Shot Analyzer logo">
+          <span class="brand-text">Hockey Shot Analyzer</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-ghost" onclick="showUpload()">Analyze New Shot</button>
+          <button class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
+      </header>
+
+      <div class="history-header">
+        <h2>Suggested Attempts</h2>
+      </div>
+      <p class="muted" id="segmentsLede">We scanned your clip and suggested where each attempt happens. Pick one to analyze it on its own. Suggestions are approximate — adjust if needed.</p>
+      <div id="segmentsList" class="segments-list"></div>
+    </section>
+
   </main>
 
   <!-- Global expert-mode badge (Ctrl+Shift+F toggles) -->
@@ -530,6 +556,7 @@
         <p class="muted diag-help">If something goes wrong, the most recent backend &amp; browser errors show up here. Newest first.</p>
         <div class="ctx-actions">
           <button class="btn-ghost small" type="button" onclick="loadErrors()">Refresh</button>
+          <button class="btn-ghost small" type="button" onclick="clearErrors()">Clear log</button>
           <span id="diagStatus" class="fb-status"></span>
         </div>
         <div id="errorList" class="error-list"></div>

@@ -1319,14 +1319,16 @@ body.modal-open { overflow: hidden; }
 }
 .sub-label {
   order: 2;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: var(--l-text-mute);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   margin: 8px 0 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sub-val {
   font-family: var(--font-head);

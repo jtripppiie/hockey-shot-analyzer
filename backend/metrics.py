@@ -488,7 +488,8 @@ def _measure_weight_transfer(frames, dom, phases):
 
 
 # ── Main entry ───────────────────────────────────────────────────────────────
-def compute_metrics(frames: list[dict], fps: float = 60.0) -> dict:
+def compute_metrics(frames: list[dict], fps: float = 60.0,
+                    hand_override: str | None = None) -> dict:
     """
     Returns dict with:
       metrics:        {key: {value, score|None, grade, status, reason?, tip,
@@ -496,12 +497,18 @@ def compute_metrics(frames: list[dict], fps: float = 60.0) -> dict:
       summary:        {overall, power, technique, timing}  (scores are over the
                        reliable metrics only)
       quality_report: {camera_view, dominant_hand, phases, warnings: [...]}
+
+    `hand_override` ("left"|"right") forces the shooting hand instead of
+    auto-detecting it from wrist motion; anything else falls back to auto.
     """
     valid = [f for f in frames if f.get("landmarks")]
     if len(valid) < 5:
         return {}
 
-    dom = _detect_dominant_hand(valid)
+    override = hand_override if hand_override in ("left", "right") else None
+    detected_dom = _detect_dominant_hand(valid)
+    dom = override or detected_dom
+    hand_source = "override" if override else "auto"
     cam = _detect_camera_view(valid)
     phases = _detect_phases(valid, dom, fps)
 
@@ -594,6 +601,7 @@ def compute_metrics(frames: list[dict], fps: float = 60.0) -> dict:
             "camera_view":     cam["view"],
             "side_view_quality": cam.get("side_view_quality", 0.0),
             "dominant_hand":   dom,
+            "dominant_hand_source": hand_source,
             "phases":          phases,
             "measured_metrics": measured_count,
             "total_metrics":   len(scored),

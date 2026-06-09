@@ -632,7 +632,20 @@ window.addEventListener("DOMContentLoaded", () => {
   _showOnboardingIfNeeded();
 });
 
+function _savedHandOverride() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PLAYER_PROFILE_KEY) || "{}");
+    const hand = saved.profileHandOverride;
+    return hand === "left" || hand === "right" ? hand : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 async function _submitAnalyze(endpoint, form, initialMsg) {
+  const hand = _savedHandOverride();
+  if (hand) form.set("hand_override", hand);
+
   showSection("progressSection");
   setProgress(10, initialMsg);
 

@@ -78,7 +78,7 @@ def serve_index():
 
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(file: UploadFile = File(...), hand_override: str = Form("")):
     # Validate extension
     allowed = {".mp4", ".mov", ".avi", ".mkv"}
     suffix = Path(file.filename).suffix.lower()
@@ -93,7 +93,8 @@ async def analyze(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
 
     try:
-        return _analyze_video(str(upload_path), file.filename, job_id)
+        return _analyze_video(str(upload_path), file.filename, job_id,
+                              hand_override=hand_override)
     finally:
         if upload_path.exists():
             upload_path.unlink()
@@ -104,6 +105,7 @@ async def analyze_youtube(
     url: str = Form(...),
     start: str = Form(""),     # "MM:SS" or "SS" or empty
     end: str = Form(""),       # "MM:SS" or "SS" or empty
+    hand_override: str = Form(""),
 ):
     """Download a YouTube clip (optionally trimmed to start..end) and analyze."""
     if not _looks_like_youtube_url(url):
@@ -128,13 +130,15 @@ async def analyze_youtube(
 
     try:
         display_name = title or "YouTube clip"
-        return _analyze_video(str(download_path), display_name, job_id)
+        return _analyze_video(str(download_path), display_name, job_id,
+                              hand_override=hand_override)
     finally:
         if download_path.exists():
             download_path.unlink()
 
 
-def _analyze_video(video_path: str, display_name: str, job_id: str):
+def _analyze_video(video_path: str, display_name: str, job_id: str,
+                   hand_override: str | None = None):
     """Shared analysis pipeline used by both file-upload and YouTube endpoints."""
     overlay_video = OUTPUT_DIR / f"{job_id}_overlay.mp4"
     key_frame     = OUTPUT_DIR / f"{job_id}_frame.jpg"
@@ -165,7 +169,7 @@ def _analyze_video(video_path: str, display_name: str, job_id: str):
             raise HTTPException(422, "poor_detection")
 
         # Compute metrics
-        result = compute_metrics(frames, fps=meta["fps"])
+        result = compute_metrics(frames, fps=meta["fps"], hand_override=hand_override)
         if not result:
             raise HTTPException(422, "metrics_failed")
 
@@ -711,6 +715,7 @@ async def analyze_segment(
     start_sec: float = Form(...),
     end_sec: float = Form(...),
     label: str = Form(""),
+    hand_override: str = Form(""),
 ):
     """Trim one suggested attempt out of a cached multi-rep source and analyze
     it as its own clip."""
@@ -729,7 +734,8 @@ async def analyze_segment(
     display_name = label.strip() or f"Attempt @ {start_sec:.0f}s"
     try:
         _trim_clip(str(src), str(trimmed), float(start_sec), float(end_sec))
-        return _analyze_video(str(trimmed), display_name, job_id)
+        return _analyze_video(str(trimmed), display_name, job_id,
+                              hand_override=hand_override)
     finally:
         if trimmed.exists():
             trimmed.unlink()

@@ -524,6 +524,16 @@
           <span id="profileStatus" class="fb-status"></span>
         </div>
       </div>
+
+      <details class="ctx-card diag-card" id="diagnostics" ontoggle="if(this.open)loadErrors()">
+        <summary class="diag-summary">Diagnostics <span class="hint">recent errors</span></summary>
+        <p class="muted diag-help">If something goes wrong, the most recent backend &amp; browser errors show up here. Newest first.</p>
+        <div class="ctx-actions">
+          <button class="btn-ghost small" type="button" onclick="loadErrors()">Refresh</button>
+          <span id="diagStatus" class="fb-status"></span>
+        </div>
+        <div id="errorList" class="error-list"></div>
+      </details>
     </div>
   </div>
 

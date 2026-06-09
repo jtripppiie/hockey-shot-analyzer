@@ -407,6 +407,46 @@ function closeSettings() {
   if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
 }
 
+async function loadErrors() {
+  const list = document.getElementById("errorList");
+  const status = document.getElementById("diagStatus");
+  if (!list) return;
+  if (status) status.textContent = "Loading…";
+  try {
+    const res = await fetch(`${API}/errors?limit=50`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    if (status) status.textContent = "";
+    if (!Array.isArray(rows) || rows.length === 0) {
+      list.innerHTML = `<p class="muted">No errors logged. 🎉</p>`;
+      return;
+    }
+    list.innerHTML = rows.map((r) => {
+      const src = escapeHtml(r.source || "backend");
+      const where = escapeHtml(r.where || "");
+      const type = r.error_type ? `<span class="err-type">${escapeHtml(r.error_type)}</span>` : "";
+      const msg = escapeHtml(r.message || "");
+      const ts = escapeHtml(r.ts || "");
+      const tb = r.traceback
+        ? `<details class="err-tb"><summary>traceback</summary><pre>${escapeHtml(r.traceback)}</pre></details>`
+        : "";
+      return `<div class="err-row err-${src}">
+        <div class="err-head">
+          <span class="err-src err-src-${src}">${src}</span>
+          <span class="err-where">${where}</span>
+          ${type}
+          <span class="err-ts">${ts}</span>
+        </div>
+        <div class="err-msg">${msg || "<span class=\"muted\">(no message)</span>"}</div>
+        ${tb}
+      </div>`;
+    }).join("");
+  } catch (e) {
+    if (status) status.textContent = "Couldn't load errors.";
+    list.innerHTML = `<p class="muted">Error log unavailable (${escapeHtml(String(e.message || e))}).</p>`;
+  }
+}
+
 function openRecordingTips() {
   const overlay = document.getElementById("tipsOverlay");
   const video = document.getElementById("tipsVideo");

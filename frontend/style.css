@@ -2091,4 +2091,37 @@ body.modal-open { overflow: hidden; }
 .session-pick-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-pick-add { font-size: 0.8125rem; color: var(--l-accent, #2563eb); font-weight: 600; }
 
+/* ─── Diagnostics / error log ───────────────────────────────────────────── */
+.diag-card { display: block; margin-top: 14px; overflow: visible; }
+.settings-dialog .diag-card { padding: 14px; }
+.diag-summary { cursor: pointer; font-weight: 700; }
+.diag-summary .hint { font-weight: 400; }
+.diag-help { margin: 8px 0; }
+.error-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; max-height: 340px; overflow-y: auto; }
+.err-row {
+  border: 1px solid var(--l-border, #e2e6ee);
+  border-left: 3px solid var(--l-border-strong, #cbd5e1);
+  border-radius: 8px; padding: 8px 10px; background: #fff;
+}
+.err-backend { border-left-color: #dc2626; }
+.err-frontend { border-left-color: #2563eb; }
+.err-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8125rem; }
+.err-src {
+  font-weight: 700; text-transform: uppercase; font-size: 0.6875rem;
+  letter-spacing: 0.03em; padding: 1px 6px; border-radius: 5px; color: #fff;
+}
+.err-src-backend { background: #dc2626; }
+.err-src-frontend { background: #2563eb; }
+.err-where { font-weight: 600; }
+.err-type { font-family: ui-monospace, Menlo, monospace; color: #b91c1c; }
+.err-ts { margin-left: auto; color: var(--l-text-soft, #6b7280); }
+.err-msg { margin-top: 4px; font-size: 0.875rem; word-break: break-word; }
+.err-tb { margin-top: 6px; }
+.err-tb summary { cursor: pointer; font-size: 0.75rem; color: var(--l-text-soft, #6b7280); }
+.err-tb pre {
+  margin: 6px 0 0; padding: 8px; border-radius: 6px;
+  background: #0f172a; color: #e2e8f0; font-size: 0.6875rem;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word; max-height: 220px;
+}
+
 

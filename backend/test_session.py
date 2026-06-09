@@ -243,6 +243,28 @@ def test_shot_check_rejects_static_clip():
     assert sc["reject"] is True
 
 
+def test_continuity_passes_continuous_clip():
+    res = M.compute_metrics(_grounded_shot_frames(), fps=30.0)
+    cc = res["quality_report"]["continuity_check"]
+    assert cc["cut_count"] == 0
+    assert cc["looks_continuous"] is True
+
+
+def test_continuity_flags_montage_cut():
+    # A montage: a single mid-clip frame teleports the whole body by ~1.5 torso
+    # lengths (a hard camera cut), which a continuous attempt never does.
+    frames = _grounded_shot_frames(90)
+    for i in range(45, 90):                 # second "scene": body shifted down
+        for k, p in frames[i]["landmarks"].items():
+            p["y"] += 0.45                  # torso ~0.30 → jump ~1.5 lengths
+    res = M.compute_metrics(frames, fps=30.0)
+    cc = res["quality_report"]["continuity_check"]
+    assert cc["cut_count"] >= 1
+    assert cc["looks_continuous"] is False
+    assert cc["max_jump"] > M.CUT_JUMP
+    assert any("camera cuts" in w for w in res["quality_report"]["warnings"])
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

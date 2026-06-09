@@ -135,6 +135,25 @@ only large local asset (gitignored).
    `test_shot_check_rejects_airborne_clip` /
    `test_shot_check_rejects_static_clip` in `test_session.py`.
 
+12. **Continuity / scene-cut guard** — A montage clip (multiple scenes spliced
+   together) teleports the whole body between cuts, which can fake a hip rise
+   and break phase detection — and was the one failure mode real uploads kept
+   hitting (a 19s slap-shot montage false-accepted on the *vault* side because a
+   cut faked a 0.42 "rise"). `_scene_cuts(frames)` in `backend/metrics.py`
+   measures the per-frame jump of the body centre (hip midpoint) in **torso
+   lengths** (shoulder-mid → hip-mid), which is scale/zoom invariant, and counts
+   jumps above `CUT_JUMP=1.0` as cuts (skipping frame-index gaps, which are
+   tracking dropouts not cuts). `quality_report["continuity_check"]` carries
+   `{cut_count, max_jump, looks_continuous}`. If `cut_count >= 1`, a "This clip
+   looks like it contains camera cuts…" warning is **inserted at the front** of
+   `warnings`. **WARN only, never a hard reject** — with only 3 real samples a
+   fast legit pan could spike, so we tell the user rather than block. Calibrated
+   on real continuous footage (max jump ≤0.55 torso-lengths/frame) vs a montage
+   (1.2+ at each cut) — `CUT_JUMP=1.0` separates with ~2× margin. The helper is
+   sport-agnostic and mirrored verbatim in the pole repo. Regression tests:
+   `test_continuity_passes_continuous_clip` /
+   `test_continuity_flags_montage_cut` in `test_session.py`.
+
 | Path | Purpose |
 |------|---------|
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_multi` helpers; global `@app.exception_handler(Exception)` |

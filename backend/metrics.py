@@ -151,6 +151,46 @@ def _wrist_travel(frames: list[dict], dom: str | None) -> float:
     return float(np.ptp(xs) + np.ptp(ys))
 
 
+# A montage / multi-scene clip teleports the whole body between camera cuts,
+# which can fake a big "hip rise" and fool the grounded-shot guard. Detect a cut
+# as a sudden per-frame jump of the body centre (hip midpoint) measured in torso
+# lengths (shoulder-mid → hip-mid), which is scale/zoom invariant. Calibrated on
+# real continuous footage (max jump ~0.55 torso-lengths/frame) vs a montage
+# (~1.2+ at each cut). Only adjacent tracked frames are compared, so a tracking
+# dropout (a gap in frame indices) is not mistaken for a cut.
+CUT_JUMP = 1.0  # body-centre jump (in torso-lengths) above this = a scene cut
+
+
+def _scene_cuts(frames: list[dict]) -> tuple[int, float]:
+    """Return (number of scene cuts, largest per-frame body-centre jump in torso
+    lengths). A real single-attempt clip is continuous → 0 cuts, small max."""
+    recs = []  # (frame_idx, ax, ay, torso_scale)
+    for f in frames:
+        lm = f.get("landmarks")
+        if not lm:
+            continue
+        lh, rh = _pt3(lm, "left_hip"), _pt3(lm, "right_hip")
+        ls, rs = _pt3(lm, "left_shoulder"), _pt3(lm, "right_shoulder")
+        if lh is None or rh is None or ls is None or rs is None:
+            continue
+        ax, ay = float((lh[0] + rh[0]) / 2), float((lh[1] + rh[1]) / 2)
+        sx, sy = float((ls[0] + rs[0]) / 2), float((ls[1] + rs[1]) / 2)
+        recs.append((f["frame"], ax, ay, float(math.hypot(sx - ax, sy - ay))))
+    cuts = 0
+    max_jump = 0.0
+    for k in range(1, len(recs)):
+        fp, axp, ayp, sp = recs[k - 1]
+        fc, axc, ayc, sc = recs[k]
+        if fc - fp > 2:  # a gap in tracked frames is a dropout, not a cut
+            continue
+        scale = max(sp, sc, 1e-3)
+        jump = float(math.hypot(axc - axp, ayc - ayp) / scale)
+        max_jump = max(max_jump, jump)
+        if jump > CUT_JUMP:
+            cuts += 1
+    return cuts, round(max_jump, 3)
+
+
 # ── Handedness & phase detection ─────────────────────────────────────────────
 def _detect_dominant_hand(frames: list[dict]) -> str | None:
     """
@@ -586,6 +626,16 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
                         " so these scores may not be meaningful. Upload a side-on clip"
                         " of a single shot from wind-up through follow-through.")
 
+    # Continuity check: a montage / multi-scene clip teleports the body between
+    # cuts, which can fake a hip rise and break phase detection. Warn (don't
+    # reject — a single fast pan shouldn't hard-block) so the user knows why.
+    cut_count, max_jump = _scene_cuts(valid)
+    looks_continuous = cut_count == 0
+    if not looks_continuous:
+        warnings.insert(0, "This clip looks like it contains camera cuts or multiple"
+                        " scenes. Upload a single continuous attempt — one shot, one"
+                        " camera — for accurate analysis.")
+
     # ── Measure each metric ──
     raw_results = {
         "knee_bend":         _measure_knee_bend(valid, dom, phases),
@@ -672,6 +722,11 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
                 "wrist_travel":    round(wrist_travel, 3),
                 "looks_like_shot": looks_like_shot,
                 "reject":          shot_reject,
+            },
+            "continuity_check": {
+                "cut_count":        cut_count,
+                "max_jump":         max_jump,
+                "looks_continuous": looks_continuous,
             },
             "warnings":        warnings,
         },

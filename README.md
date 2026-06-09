@@ -431,6 +431,7 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 | Page takes forever after upload | Your clip is too big. Trim it under 30 seconds and under 100 MB. |
 | Every metric says "Needs a side-view clip" | Camera was facing you head-on. Re-film from the side. |
 | "This doesn't look like a hockey shot" | The clip didn't show a grounded shooting motion (a planted player snapping the puck) — e.g. a still clip, the wrong sport, or someone jumping. Upload a side-on clip of a single shot from wind-up through follow-through. |
+| "This clip looks like it contains camera cuts" | The clip appears to be a montage or highlight reel with multiple scenes spliced together, which throws off the analysis. Upload a single continuous attempt — one shot, one camera, no edits. |
 | `Permission denied: ./run.sh` | Run `chmod +x run.sh share.sh` once. |
 | `git push` asks for a password | GitHub requires a **personal access token** instead of your password — make one at https://github.com/settings/tokens and paste it when prompted. |
 | `Ctrl+Shift+F` does nothing | Expert Feedback Mode only works on the results page and is desktop-only (≥1024px width + a real keyboard/mouse) — see the Expert Feedback section above. |

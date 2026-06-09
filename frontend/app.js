@@ -51,6 +51,7 @@ const ERROR_MESSAGES = {
   no_body_detected: { icon: "👀", title: "Couldn't find a player", body: "The AI couldn't see anyone in this clip. Check that:\n• The player fills most of the frame\n• Lighting is bright and even\n• The camera is at a side angle (not front-on)\n• There's no one else crossing the frame" },
   poor_detection:   { icon: "⚠️", title: "Hard to see the player", body: "The AI could only track the player in part of the clip. For better results:\n• Use brighter lighting\n• Film from the side (15–45°)\n• Make sure the full body is in frame the whole time\n• Avoid busy backgrounds" },
   metrics_failed:   { icon: "🔢", title: "Couldn't calculate scores", body: "Landmarks were found but angles couldn't be computed. Make sure the full body (head to ankles) is visible throughout the shot." },
+  not_a_hockey_shot: { icon: "🤔", title: "This doesn't look like a hockey shot", body: "We couldn't see a grounded shooting motion — a planted player snapping the puck. Upload a side-on clip of a single shot from wind-up through follow-through.\n\nIf this really is a shot, make sure the full body is in frame and the camera is at a side angle." },
   server_error:     { icon: "🛠️", title: "Something went wrong", body: "An unexpected error occurred on the server. Try a different clip, or restart the app." },
   youtube_download_failed: { icon: "📺", title: "Couldn't grab that clip", body: "YouTube blocked the download or the video is private/region-locked. Try a different link, or download it manually and upload the file." },
 };

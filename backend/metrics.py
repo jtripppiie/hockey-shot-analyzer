@@ -104,6 +104,53 @@ def _angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
     return math.degrees(math.acos(max(-1.0, min(1.0, cos))))
 
 
+# ── Wrong-sport / not-a-shot guard ───────────────────────────────────────────
+# A hockey shot is a *grounded* motion with a real shooting action. Two signals
+# separate it from the wrong clip (e.g. a jumping sport) or a static upload:
+#   • the shooter stays planted — the hips barely rise (a jump/vault rises a lot)
+#   • there is a real shooting motion — the dominant wrist travels a meaningful
+#     distance across the clip (a static clip barely moves)
+# Calibrated on real shot footage (hip rise ~0.05, wrist travel ~0.56) vs a
+# pole-vault clip (rise ~0.25, travel ~1.14). Thresholds are deliberately
+# conservative — the warn band nudges, only the reject band hard-stops.
+SHOT_GROUNDED_WARN = 0.14    # hips rise more than this → probably airborne, warn
+SHOT_AIRBORNE_REJECT = 0.20  # hips rise this much → almost certainly not a shot
+SHOT_MOTION_WARN = 0.18      # wrist travels less than this → motion looks too small
+SHOT_MOTION_REJECT = 0.10    # wrist barely moves → almost certainly not a shot
+
+
+def _hip_rise(frames: list[dict]) -> float:
+    """Peak rise of the hips above their median height (normalized image units).
+    Near-zero for a grounded shooter, large for a jump/vault."""
+    ys = []
+    for f in frames:
+        lm = f.get("landmarks")
+        if not lm:
+            continue
+        lh, rh = _pt3(lm, "left_hip"), _pt3(lm, "right_hip")
+        if lh is not None and rh is not None:
+            ys.append(-float((lh[1] + rh[1]) / 2.0))  # negate image-y: higher hips → larger
+    if len(ys) < 5:
+        return 0.0
+    med = sorted(ys)[len(ys) // 2]
+    return max(ys) - med
+
+
+def _wrist_travel(frames: list[dict], dom: str | None) -> float:
+    """Total span (Δx + Δy) of the dominant wrist over the clip. Large for a
+    real shot, near-zero for a static clip."""
+    if dom is None:
+        return 0.0
+    xs, ys = [], []
+    for f in frames:
+        w = _pt3(f.get("landmarks") or {}, f"{dom}_wrist")
+        if w is not None:
+            xs.append(w[0]); ys.append(w[1])
+    if len(xs) < 5:
+        return 0.0
+    return float(np.ptp(xs) + np.ptp(ys))
+
+
 # ── Handedness & phase detection ─────────────────────────────────────────────
 def _detect_dominant_hand(frames: list[dict]) -> str | None:
     """
@@ -524,6 +571,21 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
     if phases["release"] is None:
         warnings.append("Couldn't find the moment of release. Try a clip that shows the full shot motion.")
 
+    # Sanity check: does this clip actually show a hockey shot? A shooter stays
+    # grounded and snaps the puck; a jump/vault rises off the ground, and a
+    # static clip has no shooting motion at all.
+    hip_rise = _hip_rise(valid)
+    wrist_travel = _wrist_travel(valid, dom)
+    looks_like_shot = (hip_rise <= SHOT_GROUNDED_WARN
+                       and wrist_travel >= SHOT_MOTION_WARN)
+    shot_reject = (hip_rise > SHOT_AIRBORNE_REJECT
+                   or wrist_travel < SHOT_MOTION_REJECT)
+    if not looks_like_shot:
+        warnings.insert(0, "This doesn't look like a hockey shot — we couldn't see a"
+                        " grounded shooting motion (a planted player snapping the puck),"
+                        " so these scores may not be meaningful. Upload a side-on clip"
+                        " of a single shot from wind-up through follow-through.")
+
     # ── Measure each metric ──
     raw_results = {
         "knee_bend":         _measure_knee_bend(valid, dom, phases),
@@ -605,6 +667,12 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
             "phases":          phases,
             "measured_metrics": measured_count,
             "total_metrics":   len(scored),
+            "shot_check": {
+                "hip_rise":        round(hip_rise, 3),
+                "wrist_travel":    round(wrist_travel, 3),
+                "looks_like_shot": looks_like_shot,
+                "reject":          shot_reject,
+            },
             "warnings":        warnings,
         },
     }

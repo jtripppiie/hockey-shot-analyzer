@@ -12,6 +12,7 @@ from pathlib import Path
 
 import session as S
 import segmenter as SEG
+import metrics as M
 
 
 def _use_tmp_output():
@@ -130,6 +131,72 @@ def test_events_to_windows_merges_overlaps():
     windows = SEG.events_to_windows(events, 30.0, total_frames=300)
     assert len(windows) == 1
     assert windows[0]["confidence"] == 1.0  # keeps strongest contributor
+
+
+def _grounded_shot_frames(n=90):
+    """A planted shooter: hips steady, dominant (right) wrist sweeps a real arc."""
+    import math
+    frames = []
+    for i in range(n):
+        p = i / (n - 1)
+        wx = 0.40 + 0.45 * p                       # wrist sweeps across the body
+        wy = 0.55 - 0.20 * math.sin(math.pi * p)   # small lift through the shot
+        frames.append({"frame": i, "landmarks": {
+            "right_wrist":    {"x": wx,   "y": wy,  "v": 1.0},
+            "right_shoulder": {"x": 0.40, "y": 0.40, "v": 1.0},
+            "left_shoulder":  {"x": 0.60, "y": 0.40, "v": 1.0},
+            "right_hip":      {"x": 0.45, "y": 0.70, "v": 1.0},
+            "left_hip":       {"x": 0.55, "y": 0.70, "v": 1.0},
+            "right_knee":     {"x": 0.45, "y": 0.85, "v": 1.0},
+            "right_ankle":    {"x": 0.45, "y": 0.97, "v": 1.0},
+        }})
+    return frames
+
+
+def test_shot_check_passes_grounded_shot():
+    res = M.compute_metrics(_grounded_shot_frames(), fps=30.0)
+    sc = res["quality_report"]["shot_check"]
+    assert sc["looks_like_shot"] is True
+    assert sc["reject"] is False
+
+
+def test_shot_check_rejects_airborne_clip():
+    # A jump/vault: hips sit grounded then spike upward for a brief airborne
+    # window (wrist still moves) → not a grounded shot.
+    frames = []
+    for i in range(90):
+        lift = 0.30 if 40 <= i <= 55 else 0.0   # brief airborne burst
+        frames.append({"frame": i, "landmarks": {
+            "right_wrist":    {"x": 0.40 + 0.45 * (i / 89.0), "y": 0.50 - lift, "v": 1.0},
+            "right_shoulder": {"x": 0.40, "y": 0.40 - lift, "v": 1.0},
+            "left_shoulder":  {"x": 0.60, "y": 0.40 - lift, "v": 1.0},
+            "right_hip":      {"x": 0.45, "y": 0.70 - lift, "v": 1.0},
+            "left_hip":       {"x": 0.55, "y": 0.70 - lift, "v": 1.0},
+        }})
+    res = M.compute_metrics(frames, fps=30.0)
+    sc = res["quality_report"]["shot_check"]
+    assert sc["looks_like_shot"] is False
+    assert sc["reject"] is True
+    assert any("doesn't look like a hockey shot" in w
+               for w in res["quality_report"]["warnings"])
+
+
+def test_shot_check_rejects_static_clip():
+    # A still person: barely any wrist motion → no shooting action.
+    frames = []
+    for i in range(60):
+        jit = 0.01 * ((i % 4) - 1.5)
+        frames.append({"frame": i, "landmarks": {
+            "right_wrist":    {"x": 0.50 + jit, "y": 0.55, "v": 1.0},
+            "right_shoulder": {"x": 0.40, "y": 0.40, "v": 1.0},
+            "left_shoulder":  {"x": 0.60, "y": 0.40, "v": 1.0},
+            "right_hip":      {"x": 0.45, "y": 0.70, "v": 1.0},
+            "left_hip":       {"x": 0.55, "y": 0.70, "v": 1.0},
+        }})
+    res = M.compute_metrics(frames, fps=30.0)
+    sc = res["quality_report"]["shot_check"]
+    assert sc["looks_like_shot"] is False
+    assert sc["reject"] is True
 
 
 def _run_all():

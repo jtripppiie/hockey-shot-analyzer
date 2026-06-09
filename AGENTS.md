@@ -113,6 +113,28 @@ only large local asset (gitignored).
    `logging.error` so failures are actually reviewable in **Settings →
    Diagnostics**.
 
+11. **Wrong-sport / not-a-shot guard** — `compute_metrics` checks that a clip
+   actually shows a *grounded* hockey shot via two signals in
+   `backend/metrics.py`: `_hip_rise(valid)` (peak hip rise above median — near
+   zero for a planted shooter, large for a jump/vault) and
+   `_wrist_travel(valid, dom)` (dominant-wrist span — large for a real shot,
+   near zero for a static clip). `quality_report["shot_check"]` carries
+   `{hip_rise, wrist_travel, looks_like_shot, reject}`. Thresholds:
+   `SHOT_GROUNDED_WARN=0.14` / `SHOT_AIRBORNE_REJECT=0.20` (hips) and
+   `SHOT_MOTION_WARN=0.18` / `SHOT_MOTION_REJECT=0.10` (wrist). Outside the warn
+   band, a prominent "This doesn't look like a hockey shot…" message is
+   **inserted at the front** of `quality_report["warnings"]` (still scored).
+   When `reject` is set (airborne *or* too static), `_analyze_video` raises
+   `HTTPException(422, "not_a_hockey_shot")` (shared by `/analyze`,
+   `/analyze-youtube`, `/analyze-segment`); the frontend maps it via
+   `ERROR_MESSAGES["not_a_hockey_shot"]`. This mirrors the pole-vault repo's
+   `sport_check`, but uses grounded-shot signals rather than vault rise.
+   Calibrated on real shot footage (hip rise ~0.05, wrist travel ~0.56) vs a
+   pole-vault clip (rise ~0.25, travel ~1.14); thresholds are conservative.
+   Regression tests: `test_shot_check_passes_grounded_shot` /
+   `test_shot_check_rejects_airborne_clip` /
+   `test_shot_check_rejects_static_clip` in `test_session.py`.
+
 | Path | Purpose |
 |------|---------|
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_multi` helpers; global `@app.exception_handler(Exception)` |

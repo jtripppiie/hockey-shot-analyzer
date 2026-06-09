@@ -172,6 +172,8 @@ def _analyze_video(video_path: str, display_name: str, job_id: str,
         result = compute_metrics(frames, fps=meta["fps"], hand_override=hand_override)
         if not result:
             raise HTTPException(422, "metrics_failed")
+        if result["quality_report"].get("shot_check", {}).get("reject"):
+            raise HTTPException(422, "not_a_hockey_shot")
 
         overall = result["summary"]["overall"]
 

@@ -1101,6 +1101,16 @@ body.modal-open { overflow: hidden; }
     flex-basis: 48px;
   }
 }
+@media (max-width: 480px) {
+  /* Logo alone identifies the app — drop the brand text so it never truncates
+     to "Hockey Shot …" next to the History/Settings actions. */
+  #resultsSection > .topbar .brand-text { display: none; }
+  #resultsSection > .topbar .brand-mark {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+}
 
 .result-hero, .result-block, .result-video, .quality-banner,
 .expert-panel, .try-again, .history-header, .history-list, #historyDetail {
@@ -1816,6 +1826,7 @@ body.modal-open { overflow: hidden; }
 .fab:active { transform: translateY(1px); }
 .fab-icon { font-size: 1.125rem; line-height: 1; }
 .fab.hidden { display: none; }
+.fab.fab-suppressed { display: none; }
 
 .expert-indicator {
   position: fixed;

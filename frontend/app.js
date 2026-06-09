@@ -1456,7 +1456,20 @@ function openExpertReport() {
 window.addEventListener("DOMContentLoaded", () => {
   _buildFeedbackForm();
   _refreshExpertVisibility();
+  _setupFabSuppression();
 });
+
+// Hide the floating "New Clip" shortcut while the bottom action row (which does
+// the same thing) is on screen, so the two never collide on mobile.
+function _setupFabSuppression() {
+  const fab = document.getElementById("fabNewClip");
+  const tryAgain = document.querySelector(".try-again");
+  if (!fab || !tryAgain || !("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver(([entry]) => {
+    fab.classList.toggle("fab-suppressed", entry.isIntersecting);
+  }, { rootMargin: "0px 0px -8px 0px" });
+  io.observe(tryAgain);
+}
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeError();

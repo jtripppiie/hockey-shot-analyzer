@@ -12,6 +12,10 @@ decisions below are intentional and should not be undone without discussion.
   4. Browser-side Frame Capture (📸 button → `/capture-frame` → JPEG attached to JSONL row → embedded in Expert report).
   5. Athletic progress scene (rink + player + pucks animation) replacing the plain spinner during analysis.
   6. Lighter, semi-transparent pose overlay (smaller dots, `cv2.addWeighted` blend at 0.65) so the underlying video shows through the skeleton.
+  7. **Practice Sessions** — group multiple analyzed clips into a named session and see averages + first-vs-last trends per metric. Backend `backend/session.py` (sport-agnostic `summarize_session`, JSON-per-session under `output/session_*.json`); UI in the **Sessions** topbar button (`sessionsSection`). Session reports render via `report.py::render_session_report`.
+  8. **Multi-rep segmenter** (`backend/segmenter.py`) — smoothing + true local-maxima + non-max suppression to suggest attempt windows in a multi-shot clip (replaces the old greedy peak-pick). Constants still need calibration against real multi-rep footage.
+  9. **Centralized error logging** — append-only `output/error_log.jsonl` via `backend/errors.py` (`log_error` / `recent_errors`). A global `@app.exception_handler(Exception)` catches escaped route errors; the browser forwards uncaught JS errors to `POST /client-error`; `GET /errors` returns the newest entries. Viewable in-app under **Settings → Diagnostics** (`#diagnostics`, `loadErrors()`).
+  10. **Self-contained tests** (`backend/test_session.py`) — runnable via plain `python test_session.py` (no pytest/httpx needed); covers session round-trip, summary averages/trends, and segmenter peak detection.
 - **App version constant:** `APP_VERSION = "0.2.0-expert-feedback"` in
   `backend/feedback.py`.
 - **Sibling repo:** `pole-vault-analyzer` (mirrored structure, same patterns).
@@ -95,18 +99,30 @@ only large local asset (gitignored).
   inside `settingsOverlay` and are toggled by `openSettings()`. `Start Fresh`
   clears localStorage, preserves the onboarding-seen flag, and returns the app
   to defaults.
-
-## Hot files
+10. **All errors land in one JSONL log** — `backend/errors.py` is the single
+   choke point: `log_error(where, exc=None, *, message=None, context=None,
+   severity="error", source="backend")` appends one capped, JSON-safe row to
+   `output/error_log.jsonl` and never raises. Backend catches call it with the
+   exception; the frontend's global `error` / `unhandledrejection` handlers POST
+   to `/client-error` (source `frontend`). All `/client-error` fields are
+   untrusted and length-capped in `errors.py`. There is intentionally no log
+   rotation (matches the feedback log). Prefer `log_error` over ad-hoc
+   `logging.error` so failures are actually reviewable in **Settings →
+   Diagnostics**.
 
 | Path | Purpose |
 |------|---------|
-| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}` |
-| `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS` |
+| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/client-error`, `/errors`; global `@app.exception_handler(Exception)` |
+| `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS`; `APP_VERSION` |
+| `backend/errors.py` | Centralized append-only error log (`output/error_log.jsonl`); `log_error`, `recent_errors`; field caps + `_safe_context` |
+| `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
+| `backend/segmenter.py` | Multi-rep attempt detection (smoothing + local maxima + NMS); `suggest_segments`, `events_to_windows` |
+| `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |
-| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, settings/tips/onboarding helpers (`openSettings`, `closeSettings`, `openRecordingTips`, `closeRecordingTips`, `acceptOnboardingCustomize`, `skipOnboarding`), player profile helpers (`clearPlayerProfile`, `startFresh`) |
-| `frontend/index.html` | Markup ids: `settingsOverlay`, `tipsOverlay`, `onboardingOverlay`, `playerProfile`, `settingsBtn`, `profileAccent`, `profileHandOverride`, `tipsVideo`, `overlayVideo`, `progressScene`, `measuredCount`, `priorityLabel`, `filenameLabel`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid` |
-| `frontend/style.css` | Upload layout tokens (`--page-width`, `--page-width-wide`), `.app-modal`, `.app-dialog`, `.icon-btn`, `.hero-art-shell`, `.profile-card`, `.scene`, `.scene-character`, `.scene-puck`, `@keyframes puck-shoot`, `.frame-preview`, `.fb-frame` |
+| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, settings/tips/onboarding helpers (`openSettings`, `closeSettings`, `openRecordingTips`, `closeRecordingTips`, `acceptOnboardingCustomize`, `skipOnboarding`), player profile helpers (`clearPlayerProfile`, `startFresh`), sessions helpers (`showSessions`, `openSessionDetail`), error reporter (`reportClientError`) + Diagnostics (`loadErrors`) |
+| `frontend/index.html` | Markup ids: `settingsOverlay`, `tipsOverlay`, `onboardingOverlay`, `playerProfile`, `settingsBtn`, `profileAccent`, `profileHandOverride`, `tipsVideo`, `overlayVideo`, `progressScene`, `measuredCount`, `priorityLabel`, `filenameLabel`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid`, `sessionsSection`, `diagnostics`, `errorList` |
+| `frontend/style.css` | Upload layout tokens (`--page-width`, `--page-width-wide`), `.app-modal`, `.app-dialog`, `.icon-btn`, `.hero-art-shell`, `.profile-card`, `.scene`, `.scene-character`, `.scene-puck`, `@keyframes puck-shoot`, `.frame-preview`, `.fb-frame`, `.session-*`, `.diag-card`, `.err-row` |
 
 ## Conventions
 

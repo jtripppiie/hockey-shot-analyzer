@@ -441,16 +441,22 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 
 ```
 backend/         FastAPI app, pose detection, biomechanics, overlay rendering
-  main.py        HTTP endpoints (/analyze, /analyze-youtube, /history, /feedback, /report)
+  main.py        HTTP endpoints (/analyze, /analyze-youtube, /history, /feedback, /report, /sessions, /errors)
   pose.py        MediaPipe wrapper + smoothing
   metrics.py     Scoring math and coaching tips
   overlay.py     Skeleton drawing + H.264 re-encode
   feedback.py    Expert Feedback Mode — JSONL append-only correction log
-  report.py      Printable HTML report (player + expert modes)
+  report.py      Printable HTML report (player + expert modes) + session report
+  session.py     Practice Sessions — group clips, averages + trends
+  segmenter.py   Multi-rep attempt detection (smoothing + local maxima + NMS)
+  errors.py      Centralized append-only error log (output/error_log.jsonl)
+  test_session.py  Self-contained tests (python test_session.py)
 frontend/        The web page (no build step — just HTML/CSS/JS)
 output/
   history.csv          summary row per analyzed clip
   feedback_log.jsonl   one line per expert feedback entry (gitignored)
+  error_log.jsonl      one line per logged error (backend + browser)
+  session_*.json       one file per saved practice session
   {job_id}_*.{mp4,jpg,json}   overlay video, key frame, full result
 run.sh           One-click setup and launch (port 8000)
 share.sh         Optional public URL via cloudflared
@@ -466,6 +472,34 @@ Python 3.10 · FastAPI · uvicorn · MediaPipe Tasks PoseLandmarker (Lite) · Op
 - **Animated progress scene** — while a clip is being analyzed, the page shows a small rink scene: a player on the left fires a continuous stream of pucks toward a goalie net on the right. The plain progress bar underneath still tracks the actual percentage. The scene respects `prefers-reduced-motion` and falls back to a static drawing for users with motion sensitivity.
 - **Semi-transparent skeleton** — the pose overlay is drawn onto a copy of each frame and blended back at 65 % opacity, with smaller dot/line sizes than before. The underlying video stays visible *through* the skeleton so you can still see the puck, the stick, and the player's gear.
 - **Frame-capture button** — see the Expert Feedback section above. Each captured frame is also embedded into the Expert report.
+
+## 🩺 Diagnostics (built-in error log)
+
+Everything that goes wrong — a failed YouTube download, a video the pose model
+can't read, or even a JavaScript error in your browser — gets recorded to a
+single append-only file, `output/error_log.jsonl`. You don't have to open a
+terminal to see them: open the **Settings** gear and expand **Diagnostics** to
+view the most recent errors (newest first), each with a source badge
+(backend/browser), where it happened, and an expandable traceback.
+
+Under the hood:
+
+```
+POST /client-error      Browser posts an uncaught JS error here (auto, throttled)
+GET  /errors?limit=50   Most recent logged errors, newest first
+```
+
+Backend code logs through one helper (`errors.log_error(...)`), a global
+exception handler catches anything that escapes a route, and the frontend's
+global error handlers forward uncaught browser errors automatically. The log is
+never rotated and is `.gitignore`d.
+
+## 📋 Practice Sessions
+
+The **Sessions** button groups several analyzed clips into one named practice
+session so you can see **averages** and **first-vs-last trends** for power,
+technique, and timing across the session — handy for tracking a single practice
+or a week of reps. Each session is stored as `output/session_*.json`.
 
 ## For AI coding agents (Copilot, Claude, etc.)
 

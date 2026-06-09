@@ -13,6 +13,15 @@ from mediapipe.tasks.python import vision as mp_vision
 # Path to the downloaded .task model (sits next to this file)
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "pose_landmarker.task")
 
+# MediaPipe's pose model resizes every input internally to a small fixed size
+# (~256px), so feeding it full 1080p/4K phone frames wastes time on colour
+# conversion and memory copies of pixels the model immediately discards. We
+# downscale the *detection input* to this long-side cap before inference. All
+# landmarks are returned in normalised 0..1 coordinates, so this does not move
+# any landmark — it only trims pre-processing cost on large clips. 1280px is
+# still ~5x the model's internal input, so accuracy is unaffected.
+DETECT_MAX_LONG_SIDE = 1280
+
 # Landmark indices we care about (MediaPipe 33-point body model)
 LANDMARKS = {
     "nose":             0,
@@ -74,6 +83,21 @@ def get_video_meta(video_path: str) -> dict:
     return {"fps": fps, "total_frames": total, "width": w, "height": h}
 
 
+def downscale_for_detection(frame_bgr, max_long_side: int = DETECT_MAX_LONG_SIDE):
+    """Return a (possibly downscaled) copy of a BGR frame whose long side is at
+    most ``max_long_side``. Never upscales. Used only for the detector input —
+    landmarks come back normalised, so callers keep drawing on the original
+    full-resolution frame. Returns the original array when no resize is needed."""
+    h, w = frame_bgr.shape[:2]
+    long_side = max(h, w)
+    if long_side <= max_long_side:
+        return frame_bgr
+    scale = max_long_side / float(long_side)
+    new_w = max(1, int(round(w * scale)))
+    new_h = max(1, int(round(h * scale)))
+    return cv2.resize(frame_bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+
 def run_pose_detection(video_path: str, sample_every: int = 1,
                        smooth_alpha: float = 0.5) -> list[dict]:
     """
@@ -99,7 +123,7 @@ def run_pose_detection(video_path: str, sample_every: int = 1,
         for idx, frame_bgr in extract_frames(video_path):
             if idx % sample_every != 0:
                 continue
-            rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            rgb = cv2.cvtColor(downscale_for_detection(frame_bgr), cv2.COLOR_BGR2RGB)
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             timestamp_ms = int(idx * 1000 / fps)
             detection = detector.detect_for_video(mp_img, timestamp_ms)

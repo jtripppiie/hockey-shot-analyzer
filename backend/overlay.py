@@ -30,6 +30,13 @@ def _draw_skeleton(frame: np.ndarray, landmarks, color: tuple) -> None:
     remains visible through the skeleton."""
     h, w = frame.shape[:2]
     pts = {i: (int(lm.x * w), int(lm.y * h)) for i, lm in enumerate(landmarks)}
+    _draw_pts(frame, pts, color)
+
+
+def _draw_pts(frame: np.ndarray, pts: dict, color: tuple) -> None:
+    """Blend a skeleton (given as {mediapipe_index: (px, py)}) onto a BGR frame
+    in-place at 65% opacity."""
+    h, w = frame.shape[:2]
     line_color = (0, 140, 255)
     line_thickness = max(2, int(min(w, h) / 360))
     dot_radius = max(3, int(min(w, h) / 240))
@@ -42,6 +49,18 @@ def _draw_skeleton(frame: np.ndarray, landmarks, color: tuple) -> None:
             cv2.circle(overlay, pts[idx], dot_radius + 1, (255, 255, 255), -1, cv2.LINE_AA)
             cv2.circle(overlay, pts[idx], dot_radius, color, -1, cv2.LINE_AA)
     cv2.addWeighted(overlay, 0.65, frame, 0.35, 0, dst=frame)
+
+
+def _pts_from_named(lm_dict: dict, w: int, h: int) -> dict:
+    """Convert the analysis layer's {name: {x, y, v, ...}} landmark dict into a
+    {mediapipe_index: (px, py)} mapping the renderer can draw. Skips landmarks
+    below the visibility threshold so we don't draw lines to occluded joints."""
+    pts = {}
+    for name, i in LANDMARKS.items():
+        p = lm_dict.get(name)
+        if p and p.get("v", 1.0) >= 0.3:
+            pts[i] = (int(p["x"] * w), int(p["y"] * h))
+    return pts
 
 
 def _make_image_detector():
@@ -67,10 +86,17 @@ def _make_video_detector():
     return mp_vision.PoseLandmarker.create_from_options(opts)
 
 
-def render_overlay(video_path: str, output_path: str, overall_score: int = 75) -> str:
+def render_overlay(video_path: str, output_path: str, overall_score: int = 75,
+                   frames_landmarks: list | None = None) -> str:
     """
-    Draw skeleton overlay on every 3rd frame (interpolate others) for speed.
-    Re-encodes to H.264 for browser compatibility.
+    Draw the skeleton overlay and re-encode to H.264 for browser compatibility.
+
+    If ``frames_landmarks`` (the per-frame landmark list already produced by the
+    analysis pass) is supplied, we reuse those landmarks instead of running pose
+    detection a second time. This removes a full redundant detection pass, frees
+    the CPU sooner, and makes the drawn skeleton exactly match the (smoothed)
+    landmarks the scores were computed from. When it is None we fall back to
+    detecting every 3rd frame so the function still works standalone.
 
     Writes to a temp file first and only moves into place after H.264 re-encoding
     so the final URL never serves the intermediate mp4v file (which browsers
@@ -88,24 +114,38 @@ def render_overlay(video_path: str, output_path: str, overall_score: int = 75) -
     out_writer = cv2.VideoWriter(staging_path, fourcc, fps, (w, h))
     color = _joint_color(overall_score)
 
-    last_landmarks = None
-    with _make_video_detector() as detector:
+    if frames_landmarks is not None:
+        # ── Fast path: reuse analysis landmarks, no detection ──
+        lm_by_idx = {f["frame"]: f["landmarks"] for f in frames_landmarks}
         idx = 0
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            # Only run pose detection every 3rd frame
-            if idx % 3 == 0:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                timestamp_ms = int(idx * 1000 / fps)
-                result = detector.detect_for_video(mp_img, timestamp_ms)
-                last_landmarks = result.pose_landmarks[0] if result.pose_landmarks else None
-            if last_landmarks is not None:
-                _draw_skeleton(frame, last_landmarks, color)
+            named = lm_by_idx.get(idx)
+            if named:
+                _draw_pts(frame, _pts_from_named(named, w, h), color)
             out_writer.write(frame)
             idx += 1
+    else:
+        # ── Fallback: detect every 3rd frame (standalone use) ──
+        last_landmarks = None
+        with _make_video_detector() as detector:
+            idx = 0
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                if idx % 3 == 0:
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                    timestamp_ms = int(idx * 1000 / fps)
+                    result = detector.detect_for_video(mp_img, timestamp_ms)
+                    last_landmarks = result.pose_landmarks[0] if result.pose_landmarks else None
+                if last_landmarks is not None:
+                    _draw_skeleton(frame, last_landmarks, color)
+                out_writer.write(frame)
+                idx += 1
 
     cap.release()
     out_writer.release()

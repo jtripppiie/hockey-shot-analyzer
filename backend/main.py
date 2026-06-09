@@ -167,7 +167,8 @@ def _analyze_video(video_path: str, display_name: str, job_id: str):
 
         def _render_bg():
             try:
-                render_overlay(str(render_src), str(overlay_video), overall_score=overall)
+                render_overlay(str(render_src), str(overlay_video),
+                               overall_score=overall, frames_landmarks=frames)
                 extract_key_frame(str(render_src), str(key_frame))
             except Exception:
                 logging.error("Overlay render failed:\n" + traceback.format_exc())

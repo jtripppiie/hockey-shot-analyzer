@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=profile-personalize-1" />
+  <link rel="stylesheet" href="/static/style.css?v=settings-tips-1" />
 </head>
 <body data-screen="upload">
 
@@ -22,52 +22,11 @@
           <span class="brand-text">Hockey Shot Analyzer</span>
         </div>
         <div class="topbar-actions">
-          <button id="playerProfileBtn" class="btn-ghost" type="button" onclick="togglePlayerProfile()" aria-controls="playerProfile" aria-expanded="false">Player Profile</button>
-          <a class="btn-ghost" href="https://www.youtube.com/results?search_query=how+to+record+hockey+shot+side+view" target="_blank" rel="noopener">Recording Tips</a>
           <button id="historyBtn" class="btn-ghost" onclick="showHistory()">History</button>
+          <button id="settingsBtn" class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings" aria-controls="settingsOverlay" aria-expanded="false">⚙</button>
+          <button class="btn-ghost" type="button" onclick="openRecordingTips()">Recording Tips</button>
         </div>
       </header>
-
-      <details class="ctx-card profile-card" id="playerProfile">
-        <summary>
-          <span class="ctx-summary-text">Player Profile <span class="hint">(optional, remembered)</span></span>
-          <span class="ctx-summary-chevron" aria-hidden="true">▾</span>
-        </summary>
-        <div class="ctx-grid profile-grid">
-          <label class="ctx-field">
-            <span>Athlete photo <span class="hint">(local only)</span></span>
-            <div class="ctx-row"><input type="file" id="profilePhoto" accept="image/*"></div>
-          </label>
-          <label class="ctx-field">
-            <span>Accent color</span>
-            <div class="ctx-row">
-              <select id="profileAccent">
-                <option value="capitals">Capitals Red</option>
-                <option value="leafs">Leafs Blue</option>
-                <option value="oilers">Oilers Orange</option>
-                <option value="green">Green</option>
-                <option value="black">Black</option>
-              </select>
-            </div>
-          </label>
-          <label class="ctx-field ctx-field-wide">
-            <span>Shooting hand override <span class="hint">(auto-detect unless changed)</span></span>
-            <div class="ctx-row">
-              <select id="profileHandOverride">
-                <option value="auto">Auto-detect</option>
-                <option value="left">Left</option>
-                <option value="right">Right</option>
-              </select>
-            </div>
-          </label>
-        </div>
-        <p class="profile-privacy">Everything stays on this device. No account required.</p>
-        <div class="ctx-actions">
-          <button class="btn-ghost small" type="button" onclick="clearPlayerProfile()">Clear</button>
-          <button class="btn-ghost small" type="button" onclick="startFresh()">Start Fresh</button>
-          <span id="profileStatus" class="fb-status"></span>
-        </div>
-      </details>
 
       <!-- HERO -->
       <div class="hero">
@@ -223,6 +182,9 @@
           <img src="/static/assets/hockey-player.png" class="brand-mark" alt="Hockey Shot Analyzer logo">
           <span class="brand-text">Hockey Shot Analyzer</span>
         </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
       </header>
       <div class="progress-card">
         <h2 id="progressMsg">Uploading clip…</h2>
@@ -241,6 +203,7 @@
         </div>
         <div class="topbar-actions">
           <button class="btn-ghost" onclick="showHistory()">History</button>
+          <button class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings">⚙</button>
         </div>
       </header>
 
@@ -438,6 +401,7 @@
         </div>
         <div class="topbar-actions">
           <button class="btn-ghost" onclick="showUpload()">Analyze New Shot</button>
+          <button class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings">⚙</button>
         </div>
       </header>
 
@@ -457,7 +421,7 @@
   </main>
 
   <!-- Global expert-mode badge (Ctrl+Shift+F toggles) -->
-  <span id="expertIndicator" class="expert-indicator hidden">EXPERT MODE</span>
+  <button id="expertIndicator" class="expert-indicator hidden" type="button" onclick="setExpertMode(false)" title="Disable Expert Mode">🧑‍🏫 Expert Mode ✕</button>
 
   <!-- Floating "new clip" action button (visible everywhere except upload page) -->
   <button id="fabNewClip" class="fab hidden" onclick="resetUI()" title="Analyze another shot">
@@ -473,6 +437,72 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=profile-top"></script>
+  <div id="settingsOverlay" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" onclick="handleModalBackdrop(event)">
+    <div class="app-dialog settings-dialog">
+      <div class="app-dialog-head">
+        <button class="btn-ghost small mobile-back" type="button" onclick="closeSettings()">Back</button>
+        <h2 id="settingsTitle">Player Profile</h2>
+        <button class="icon-btn" type="button" onclick="closeSettings()" aria-label="Close settings">✕</button>
+      </div>
+      <div class="ctx-card profile-card profile-open" id="playerProfile">
+        <div class="ctx-grid profile-grid">
+          <label class="ctx-field">
+            <span>Accent color</span>
+            <div class="ctx-row">
+              <select id="profileAccent">
+                <option value="capitals">Capitals Red</option>
+                <option value="leafs">Leafs Blue</option>
+                <option value="oilers">Oilers Orange</option>
+                <option value="green">Green</option>
+                <option value="black">Black</option>
+              </select>
+            </div>
+          </label>
+          <label class="ctx-field ctx-field-wide">
+            <span>Shooting hand override <span class="hint">(auto-detect unless changed)</span></span>
+            <div class="ctx-row">
+              <select id="profileHandOverride">
+                <option value="auto">Auto-detect</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+          </label>
+        </div>
+        <p class="profile-privacy">Everything stays on this device. No account required.</p>
+        <div class="ctx-actions">
+          <button class="btn-ghost small" type="button" onclick="clearPlayerProfile()">Clear</button>
+          <button class="btn-ghost small" type="button" onclick="startFresh()">Start Fresh</button>
+          <span id="profileStatus" class="fb-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tipsOverlay" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tipsTitle" onclick="handleModalBackdrop(event)">
+    <div class="app-dialog tips-dialog">
+      <div class="app-dialog-head">
+        <button class="btn-ghost small mobile-back" type="button" onclick="closeRecordingTips()">Back</button>
+        <h2 id="tipsTitle">Recording Tips</h2>
+        <button class="icon-btn" type="button" onclick="closeRecordingTips()" aria-label="Close recording tips">✕</button>
+      </div>
+      <div class="tips-video-frame">
+        <iframe id="tipsVideo" title="Hockey recording tips" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div id="onboardingOverlay" class="app-modal hidden" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <div class="app-dialog onboarding-dialog">
+      <h2 id="onboardingTitle">Make this app yours.</h2>
+      <p>Would you like to customize it?</p>
+      <div class="ctx-actions">
+        <button class="btn-primary" type="button" onclick="acceptOnboardingCustomize()">Customize</button>
+        <button class="btn-ghost" type="button" onclick="skipOnboarding()">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=settings-tips-1"></script>
 </body>
 </html>

@@ -101,16 +101,20 @@ projection, so a camera that's 10–20° off true side-on no longer flattens
 the knee bend or inflates the rotation score. A true side-on shot is still
 ideal, but it isn't make-or-break the way it once was.
 
-The **Recording Tips** button in the upload header opens a video-search shortcut
-for side-view filming examples. It replaces the old on-page tips card so the
-upload screen stays compact.
+The **Recording Tips** button opens side-view filming examples inside the app.
+On desktop it opens as a modal; on mobile it uses a full-screen page-style view
+with large touch targets. Closing and reopening it restarts the embedded video.
 
 ## 👤 Player Profile (optional)
 
-The upload header also has a **Player Profile** button. It opens a compact,
-local-only panel for athlete photo, accent color, and an optional shooting-hand
-override. The override defaults to auto-detect and does not affect scoring yet;
-it is saved locally for the next implementation slice.
+The gear button opens **Player Profile** settings. On desktop it opens as a
+modal; on mobile it behaves like a full-screen settings page. The panel is
+local-only and stores accent color plus an optional shooting-hand override. The
+override defaults to auto-detect and does not affect scoring yet; it is saved
+locally for the next implementation slice.
+
+On first launch, the app asks once whether you want to customize it. **Customize**
+opens these settings; **Skip** dismisses the prompt and does not show it again.
 
 Everything is optional. Skip the profile entirely and the analyzer behaves as
 before. Click **Clear** in the profile panel to wipe the saved values, or
@@ -146,9 +150,11 @@ On a desktop or laptop browser (with a real keyboard), press:
 
 **`Ctrl + Shift + F`** &nbsp;(or `⌘ + Shift + F` on Mac)
 
-You'll see a small orange `🧑‍🏫 EXPERT MODE` badge appear in the header, and an **Expert Feedback** panel will show up below the Coach's Report on every analyzed shot. Press the shortcut again to turn it off — the preference is remembered per-browser in `localStorage`.
+You'll see a small orange `🧑‍🏫 Expert Mode ✕` badge appear, and an **Expert Feedback** panel will show up below the Coach's Report on the current results page. Press the shortcut again or click the badge to turn it off. Expert Mode is intentionally temporary: refresh, upload, loading, history, and settings all turn it off.
 
 > **Desktop only by design.** The panel won't render on phones, tablets, or anything narrower than ~1024px / without a mouse. That's enforced both in JavaScript and CSS — even with "Request desktop site" on mobile, the form stays hidden.
+
+If an upload or analysis error happens, the error panel always offers **Try Again**, **Refresh App**, and **Escape** so you can recover without getting trapped.
 
 ### What you fill in for each shot
 
@@ -425,8 +431,8 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 | Every metric says "Needs a side-view clip" | Camera was facing you head-on. Re-film from the side. |
 | `Permission denied: ./run.sh` | Run `chmod +x run.sh share.sh` once. |
 | `git push` asks for a password | GitHub requires a **personal access token** instead of your password — make one at https://github.com/settings/tokens and paste it when prompted. |
-| `Ctrl+Shift+F` does nothing | You're on a touch device or a narrow window. Expert Feedback Mode is desktop-only (≥1024px width + a real keyboard/mouse) — see the Expert Feedback section above. |
-| Expert form vanishes after reload | It's remembered in `localStorage` per-browser. If you cleared site data, press the shortcut again. |
+| `Ctrl+Shift+F` does nothing | Expert Feedback Mode only works on the results page and is desktop-only (≥1024px width + a real keyboard/mouse) — see the Expert Feedback section above. |
+| Expert form vanishes after reload | Expected. Expert Mode is temporary and never persisted; re-toggle it from the results page with `Ctrl+Shift+F`. |
 
 ---
 

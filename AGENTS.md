@@ -6,7 +6,7 @@ decisions below are intentional and should not be undone without discussion.
 ## Current state
 
 - **Last shipped features:**
-  1. **Compact dashboard upload + results UI (June 2026)** — light upload and coach-report results screens, mirrored with `pole-vault-analyzer` so the apps feel like the same tool family. Headings/body now use `Nunito Sans`; upload uses a wide 1420px three-column desktop layout with image-led sport art on the left, a compact combined upload/YouTube card in the center, and one-column guidance cards on the right. The old on-page filming tips are hidden from the upload flow; the header has **Player Profile**, **Recording Tips**, and **History** controls. `Player Profile` opens an absolute-positioned `.profile-card` (`<details id="playerProfile" class="ctx-card profile-card">`) and persists local-only personalization (`profileAccent`, `profileHandOverride`, athlete photo data URL) under `hockeyPlayerProfile.v1` / `hockeyPlayerProfile.photo.v1`. Name, age, and position are intentionally not collected. The shooting-hand override is UI/local-storage only for now; it does not affect analyzer scoring until backend dominant-hand override work is added separately. `Recording Tips` is an external YouTube search link for side-view examples. Results screen has a focused hero with banded score label (`Elite Form` / `Solid Foundation` / `Building Up` / `Early Days` / `Just Starting`), one-line tagline derived from strongest+weakest measured metric, phase timeline (Setup→Load→Release→Follow-Through), and a `metric-grid` sorted weakest-first with the top opportunity flagged via a `metric-priority` orange pill. Coach’s Report split into strengths / focus / drills. Progress scene is an ice-rink palette with a helmeted player + 3 flying pucks (`puck-fly` keyframe). Tokens live under `:root` (`--d-*` dark palette, `--l-*` light palette, accents, `--font-head`, `--font-body`, `--page-width`, `--page-width-wide`). **Hard rule:** all existing element IDs (`overallNum`, `sub-power`, `sub-technique`, `sub-timing`, `powerNum`, `techniqueNum`, `timingNum`, `metricGrid`, `coachStrengths`, etc.) are preserved verbatim — do not rename without grepping `app.js` first.
+  1. **Compact dashboard upload + results UI (June 2026)** — light upload and coach-report results screens, mirrored with `pole-vault-analyzer` so the apps feel like the same tool family. Headings/body now use `Nunito Sans`; upload uses a wide 1420px three-column desktop layout with image-led sport art on the left, a compact combined upload/YouTube card in the center, and one-column guidance cards on the right. The old on-page filming tips are hidden from the upload flow; the header has **History**, an icon-only **Settings** gear, and **Recording Tips**. Settings is available from upload/progress/results/history topbars; desktop opens a modal, mobile uses the same overlay as a full-screen page. Settings contains Player Profile local-only personalization (`profileAccent`, `profileHandOverride`) under `hockeyPlayerProfile.v1`. Name, age, position, and custom photo upload are intentionally not collected. The shooting-hand override is UI/local-storage only for now; it does not affect analyzer scoring until backend dominant-hand override work is added separately. First launch shows `onboardingOverlay` once (`hockeyOnboardingSeen.v1`) with Customize/Skip. `Recording Tips` opens an embedded YouTube search iframe in `tipsOverlay` and clears `iframe.src` on close so it restarts each time. Results screen has a focused hero with banded score label (`Elite Form` / `Solid Foundation` / `Building Up` / `Early Days` / `Just Starting`), one-line tagline derived from strongest+weakest measured metric, phase timeline (Setup→Load→Release→Follow-Through), and a `metric-grid` sorted weakest-first with the top opportunity flagged via a `metric-priority` orange pill. Coach’s Report split into strengths / focus / drills. Progress scene is an ice-rink palette with a helmeted player + 3 flying pucks (`puck-fly` keyframe). Tokens live under `:root` (`--d-*` dark palette, `--l-*` light palette, accents, `--font-head`, `--font-body`, `--page-width`, `--page-width-wide`). **Hard rule:** all existing element IDs (`overallNum`, `sub-power`, `sub-technique`, `sub-timing`, `powerNum`, `techniqueNum`, `timingNum`, `metricGrid`, `coachStrengths`, etc.) are preserved verbatim — do not rename without grepping `app.js` first.
   2. Expert Feedback Mode (orange panel, desktop-only, `Ctrl/Cmd+Shift+F`).
   3. Measurement Feedback (blue sub-panel, scores the *analyzer*, not the athlete).
   4. Browser-side Frame Capture (📸 button → `/capture-frame` → JPEG attached to JSONL row → embedded in Expert report).
@@ -46,10 +46,12 @@ only large local asset (gitignored).
 1. **One JSONL log, two shapes** — Performance and Measurement feedback share
    `output/feedback_log.jsonl` with a `"type": "performance" | "measurement"`
    discriminator. Legacy rows without `type` are treated as performance.
-2. **Desktop-only Expert Mode gate** — Dual guard: JS `matchMedia(
-   "(hover: hover) and (pointer: fine) and (min-width: 1024px)")` plus a CSS
-   `@media` rule. localStorage key `expertMode = "1"`. Keyboard:
-   `Ctrl/Cmd+Shift+F`.
+2. **Results-only Expert Mode gate** — Dual guard: JS `matchMedia(
+  "(hover: hover) and (pointer: fine) and (min-width: 1024px)")` plus a CSS
+  `@media` rule. Expert Mode is in-memory only (`expertModeOn`), never
+  persisted. It is only visible on `body[data-screen="results"]`; upload,
+  progress, history, settings, and refresh disable it. Keyboard:
+  `Ctrl/Cmd+Shift+F`; the `🧑‍🏫 Expert Mode ✕` badge disables it.
 3. **Browser-side frame capture** — The Capture button draws the current
    `<video id="overlayVideo">` frame onto a `<canvas>` and POSTs the resulting
    JPEG to `/capture-frame`. We **do not** decode video server-side; this keeps
@@ -86,12 +88,13 @@ only large local asset (gitignored).
    world Y without first verifying the orientation convention against a
    sample clip — image Y is safer until then.
 9. **Upload header owns optional helpers** — filming guidance is now a
-  topbar **Recording Tips** link, not an in-flow tips card. The legacy
+  topbar **Recording Tips** button that opens `tipsOverlay`, not an in-flow tips card. The legacy
   `<details id="filmingTips" class="tips-card">` remains in `index.html` but
   `.tips-card` is hidden so the upload screen fits laptop-height viewports.
   The optional player personalization fields live in `<details id="playerProfile" class="ctx-card profile-card">`
-  and are toggled by `togglePlayerProfile()`. `Start Fresh` clears localStorage
-  and returns the app to defaults.
+  inside `settingsOverlay` and are toggled by `openSettings()`. `Start Fresh`
+  clears localStorage, preserves the onboarding-seen flag, and returns the app
+  to defaults.
 
 ## Hot files
 
@@ -101,9 +104,9 @@ only large local asset (gitignored).
 | `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |
-| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, player profile helpers (`togglePlayerProfile`, `clearPlayerProfile`, `startFresh`) |
-| `frontend/index.html` | Markup ids: `playerProfile`, `playerProfileBtn`, `profilePhoto`, `profileAccent`, `profileHandOverride`, `overlayVideo`, `progressScene`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid` |
-| `frontend/style.css` | Upload layout tokens (`--page-width`, `--page-width-wide`), `.hero-art-shell`, `.profile-card`, `.scene`, `.scene-character`, `.scene-puck`, `@keyframes puck-shoot`, `.frame-preview`, `.fb-frame` |
+| `frontend/app.js` | `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, settings/tips/onboarding helpers (`openSettings`, `closeSettings`, `openRecordingTips`, `closeRecordingTips`, `acceptOnboardingCustomize`, `skipOnboarding`), player profile helpers (`clearPlayerProfile`, `startFresh`) |
+| `frontend/index.html` | Markup ids: `settingsOverlay`, `tipsOverlay`, `onboardingOverlay`, `playerProfile`, `settingsBtn`, `profileAccent`, `profileHandOverride`, `tipsVideo`, `overlayVideo`, `progressScene`, `fbFrameUrl`, `fbFramePreview`, `mfbFrameUrl`, `mfbFramePreview`, `mfbOverall`, `mfbMetricGrid`, `mfbCheckGrid` |
+| `frontend/style.css` | Upload layout tokens (`--page-width`, `--page-width-wide`), `.app-modal`, `.app-dialog`, `.icon-btn`, `.hero-art-shell`, `.profile-card`, `.scene`, `.scene-character`, `.scene-puck`, `@keyframes puck-shoot`, `.frame-preview`, `.fb-frame` |
 
 ## Conventions
 

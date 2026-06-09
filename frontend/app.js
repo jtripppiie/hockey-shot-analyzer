@@ -4,6 +4,7 @@ const API = "";  // same origin — FastAPI serves frontend
 
 // Tracks the currently-displayed job
 let currentJob = null;
+let expertModeOn = false;
 
 const ERROR_MESSAGES = {
   video_too_short:  { icon: "⏱️", title: "Clip too short", body: "The video needs to be at least a few seconds long. Record the full shot — setup, release and follow-through." },
@@ -20,17 +21,27 @@ function showError(code) {
   // Codes may come with a colon suffix (e.g. "youtube_download_failed: bad url")
   const baseCode = typeof code === "string" ? code.split(":")[0].trim() : code;
   const msg = ERROR_MESSAGES[baseCode] || { icon: "❌", title: "Error", body: code };
+  document.getElementById("errorOverlay")?.remove();
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999";
+  overlay.id = "errorOverlay";
+  overlay.className = "error-overlay";
   overlay.innerHTML = `
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:14px;padding:36px;max-width:440px;text-align:center">
-      <div style="font-size:3rem;margin-bottom:12px">${msg.icon}</div>
-      <h2 style="margin-bottom:12px;color:#e6edf3">${msg.title}</h2>
-      <p style="color:#8b949e;white-space:pre-line;line-height:1.7;margin-bottom:24px">${msg.body}</p>
-      <button class="btn-primary" onclick="this.closest('div[style]').remove();resetUI()">Try Again</button>
+    <div class="error-card" role="alertdialog" aria-modal="true" aria-labelledby="errorTitle">
+      <div class="error-icon">${msg.icon}</div>
+      <h2 id="errorTitle">${msg.title}</h2>
+      <p>${msg.body}</p>
+      <div class="error-actions">
+        <button class="btn-primary" type="button" onclick="closeError();resetUI()">Try Again</button>
+        <button class="btn-ghost" type="button" onclick="location.reload()">Refresh App</button>
+        <button class="btn-ghost" type="button" onclick="closeError()">Escape</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+function closeError() {
+  document.getElementById("errorOverlay")?.remove();
 }
 
 const METRIC_META = {
@@ -246,7 +257,8 @@ async function submitYouTube() {
 // ── Player profile (optional, persisted locally) ───────────────────────────
 const PLAYER_PROFILE_KEY = "hockeyPlayerProfile.v1";
 const PLAYER_PROFILE_FIELDS = ["profileAccent", "profileHandOverride"];
-const PLAYER_PROFILE_PHOTO_KEY = "hockeyPlayerProfile.photo.v1";
+const ONBOARDING_KEY = "hockeyOnboardingSeen.v1";
+const TIPS_VIDEO_SRC = "https://www.youtube.com/embed?listType=search&list=how%20to%20record%20hockey%20shot%20side%20view&autoplay=1";
 
 const ACCENT_PRESETS = {
   capitals: { blue: "#C8102E", blue2: "#A50D25", red: "#C8102E" },
@@ -261,13 +273,6 @@ function _applyAccent(accent) {
   document.documentElement.style.setProperty("--blue", preset.blue);
   document.documentElement.style.setProperty("--blue-2", preset.blue2);
   document.documentElement.style.setProperty("--red", preset.red);
-}
-
-function _applyProfilePhoto(photoDataUrl) {
-  const shell = document.querySelector(".hero-art-shell");
-  if (!shell) return;
-  if (photoDataUrl) shell.style.setProperty("--profile-photo", `url(${photoDataUrl})`);
-  else shell.style.removeProperty("--profile-photo");
 }
 
 function _readPlayerProfile() {
@@ -305,31 +310,67 @@ function _loadPlayerProfile() {
     if (el && saved[id] != null) el.value = saved[id];
   }
   _applyAccent(saved.profileAccent);
-  _applyProfilePhoto(localStorage.getItem(PLAYER_PROFILE_PHOTO_KEY) || "");
-}
-
-function _savePlayerPhoto(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = String(reader.result || "");
-    if (!dataUrl) return;
-    localStorage.setItem(PLAYER_PROFILE_PHOTO_KEY, dataUrl);
-    _applyProfilePhoto(dataUrl);
-    const status = document.getElementById("profileStatus");
-    if (status) { status.textContent = "Photo saved"; setTimeout(() => { status.textContent = ""; }, 1200); }
-  };
-  reader.readAsDataURL(file);
 }
 
 function togglePlayerProfile() {
-  const card = document.getElementById("playerProfile");
-  const btn = document.getElementById("playerProfileBtn");
-  if (!card) return;
-  const open = !card.classList.contains("profile-open");
-  card.classList.toggle("profile-open", open);
-  card.open = open;
-  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+  openSettings();
+}
+
+function handleModalBackdrop(event) {
+  if (event.target.id === "settingsOverlay") closeSettings();
+  if (event.target.id === "tipsOverlay") closeRecordingTips();
+}
+
+function openSettings() {
+  const overlay = document.getElementById("settingsOverlay");
+  const btn = document.getElementById("settingsBtn");
+  if (!overlay) return;
+  overlay.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  if (btn) btn.setAttribute("aria-expanded", "true");
+}
+
+function closeSettings() {
+  const overlay = document.getElementById("settingsOverlay");
+  const btn = document.getElementById("settingsBtn");
+  overlay?.classList.add("hidden");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
+}
+
+function openRecordingTips() {
+  const overlay = document.getElementById("tipsOverlay");
+  const video = document.getElementById("tipsVideo");
+  if (!overlay || !video) return;
+  video.src = TIPS_VIDEO_SRC;
+  overlay.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeRecordingTips() {
+  const overlay = document.getElementById("tipsOverlay");
+  const video = document.getElementById("tipsVideo");
+  overlay?.classList.add("hidden");
+  if (video) video.removeAttribute("src");
+  if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
+}
+
+function _showOnboardingIfNeeded() {
+  if (localStorage.getItem(ONBOARDING_KEY) === "1") return;
+  document.getElementById("onboardingOverlay")?.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function acceptOnboardingCustomize() {
+  localStorage.setItem(ONBOARDING_KEY, "1");
+  document.getElementById("onboardingOverlay")?.classList.add("hidden");
+  openSettings();
+}
+
+function skipOnboarding() {
+  localStorage.setItem(ONBOARDING_KEY, "1");
+  document.getElementById("onboardingOverlay")?.classList.add("hidden");
+  if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
 }
 
 function clearPlayerProfile() {
@@ -337,18 +378,15 @@ function clearPlayerProfile() {
     const el = document.getElementById(id);
     if (el) el.value = id === "profileAccent" ? "capitals" : "auto";
   }
-  const photo = document.getElementById("profilePhoto");
-  if (photo) photo.value = "";
   localStorage.removeItem(PLAYER_PROFILE_KEY);
-  localStorage.removeItem(PLAYER_PROFILE_PHOTO_KEY);
   _applyAccent("capitals");
-  _applyProfilePhoto("");
   const status = document.getElementById("profileStatus");
   if (status) { status.textContent = "Cleared"; setTimeout(() => { status.textContent = ""; }, 1200); }
 }
 
 function startFresh() {
   localStorage.clear();
+  localStorage.setItem(ONBOARDING_KEY, "1");
   clearPlayerProfile();
   resetUI();
 }
@@ -359,8 +397,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("change", _savePlayerProfile);
   }
-  const photo = document.getElementById("profilePhoto");
-  if (photo) photo.addEventListener("change", () => _savePlayerPhoto(photo.files?.[0]));
+  _showOnboardingIfNeeded();
 });
 
 async function _submitAnalyze(endpoint, form, initialMsg) {
@@ -829,9 +866,12 @@ async function clearAllHistory() {
 function showSection(id) {
   ["uploadSection","progressSection","resultsSection","historySection"]
     .forEach(s => document.getElementById(s).classList.toggle("hidden", s !== id));
+  document.body.dataset.screen = id.replace("Section", "");
+  if (id !== "resultsSection") expertModeOn = false;
   // Hide "new clip" FAB on upload page (redundant there)
   const fab = document.getElementById("fabNewClip");
   if (fab) fab.classList.toggle("hidden", id === "uploadSection" || id === "progressSection");
+  _refreshExpertVisibility();
 }
 function showUpload()  { showSection("uploadSection"); }
 function resetUI() {
@@ -872,7 +912,7 @@ function _isDesktopExpertCapable() {
 }
 
 function expertModeEnabled() {
-  return localStorage.getItem("expertMode") === "1";
+  return expertModeOn;
 }
 
 function setExpertMode(on) {
@@ -880,13 +920,12 @@ function setExpertMode(on) {
     alert("Expert Feedback Mode is desktop-only (needs a keyboard + larger screen).");
     return;
   }
-  if (on) localStorage.setItem("expertMode", "1");
-  else localStorage.removeItem("expertMode");
+  expertModeOn = Boolean(on);
   _refreshExpertVisibility();
 }
 
 function _refreshExpertVisibility() {
-  const on = expertModeEnabled() && _isDesktopExpertCapable();
+  const on = expertModeEnabled() && _isDesktopExpertCapable() && document.body.dataset.screen === "results";
   document.getElementById("expertIndicator")?.classList.toggle("hidden", !on);
   document.getElementById("expertPanel")?.classList.toggle("hidden", !on);
   if (on && currentJob) _loadFeedbackHistory(currentJob.job_id);
@@ -985,6 +1024,12 @@ window.addEventListener("DOMContentLoaded", () => {
   _refreshExpertVisibility();
 });
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeError();
+    closeRecordingTips();
+    closeSettings();
+    return;
+  }
   const isToggle = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "F" || e.key === "f");
   if (!isToggle) return;
   e.preventDefault();

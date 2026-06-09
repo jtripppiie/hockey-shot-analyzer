@@ -441,7 +441,7 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 
 ```
 backend/         FastAPI app, pose detection, biomechanics, overlay rendering
-  main.py        HTTP endpoints (/analyze, /analyze-youtube, /history, /feedback, /report, /sessions, /errors)
+  main.py        HTTP endpoints (/analyze, /analyze-youtube, /suggest-segments, /analyze-segment, /history, /feedback, /report, /sessions, /errors)
   pose.py        MediaPipe wrapper + smoothing
   metrics.py     Scoring math and coaching tips
   overlay.py     Skeleton drawing + H.264 re-encode
@@ -487,12 +487,26 @@ Under the hood:
 ```
 POST /client-error      Browser posts an uncaught JS error here (auto, throttled)
 GET  /errors?limit=50   Most recent logged errors, newest first
+POST /errors/clear      Wipe the error log (Diagnostics has a Clear-log button)
 ```
 
 Backend code logs through one helper (`errors.log_error(...)`), a global
 exception handler catches anything that escapes a route, and the frontend's
-global error handlers forward uncaught browser errors automatically. The log is
+global error handlers forward uncaught browser errors automatically. The
+**Clear log** button in Diagnostics asks for confirmation, then calls
+`POST /errors/clear` and reports how many entries were removed. The log is
 never rotated and is `.gitignore`d.
+
+## 🎬 Multi-attempt clips
+
+Got several shots in one video? On the upload screen, use **“Got several shots
+in one clip? Find attempts →”**. The clip is scanned (`POST /suggest-segments`)
+and a **Suggested Attempts** screen lists each detected attempt with its
+timestamps and a confidence bar. Pick one and **Analyze this attempt**
+(`POST /analyze-segment`) trims just that window with a frame-accurate ffmpeg
+cut and scores it as its own clip — no re-uploading between attempts. If the
+segmenter can't confidently find separate attempts, it says so and points you
+back to single-clip analysis.
 
 ## 📋 Practice Sessions
 

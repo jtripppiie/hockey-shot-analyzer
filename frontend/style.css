@@ -1139,6 +1139,10 @@ body.modal-open { overflow: hidden; }
   line-height: 1.2;
   border: 1px solid;
 }
+.quality-banner .qb-confidence {
+  font-family: var(--font-head);
+  font-weight: 700;
+}
 .quality-banner .qb-good {
   color: #15803D;
   background: #ECFDF5;

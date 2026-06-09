@@ -134,7 +134,7 @@ before. Click **Clear** in the profile panel to wipe the saved values, or
 | **Head stability** | Whether you keep your head still or jerk it |
 | **Release timing** | How long load → release takes (in milliseconds) |
 
-Each one gets a score 0–100 and a grade: `great`, `good`, `ok`, `needs work`, or `unmeasured`. You also get a coaching tip and a drill for every metric.
+Each one gets a score 0–100 and a grade: `great`, `good`, `ok`, `needs work`, or `unmeasured`. You also get a coaching tip and a drill for every metric. The results quality banner shows analyzer confidence — **High**, **Moderate**, or **Limited** — based on measured metric coverage and camera/phase warnings.
 
 **Big scores:** Power · Technique · Timing · Overall Shot Score.
 

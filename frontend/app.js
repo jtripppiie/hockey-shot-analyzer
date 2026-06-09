@@ -147,6 +147,24 @@ function _setResultReadout(data, measuredScored, topPriorityKey) {
   if (fileEl) fileEl.textContent = data.filename || "Current clip";
 }
 
+function _confidenceBadge(q) {
+  const measured = q.measured_metrics ?? null;
+  const total = q.total_metrics ?? null;
+  const warnings = (Array.isArray(q.warnings) ? q.warnings : [])
+    .filter(w => !String(w).toLowerCase().startsWith("debug fixture"));
+  const ratio = measured != null && total ? measured / total : 0;
+  let label = "Limited confidence";
+  let klass = "qb-warn";
+  if (ratio >= 0.85 && warnings.length === 0) {
+    label = "High confidence";
+    klass = "qb-good";
+  } else if (ratio >= 0.65) {
+    label = "Moderate confidence";
+    klass = "qb-info";
+  }
+  return `<span class="${klass} qb-confidence">Analyzer: ${label}</span>`;
+}
+
 // Quality / data-confidence banner
 function _renderQualityBanner(q) {
   let el = document.getElementById("qualityBanner");
@@ -177,12 +195,13 @@ function _renderQualityBanner(q) {
   const measuredBadge = (measured != null && total != null)
     ? `<span class="${measured === total ? "qb-good" : "qb-warn"}">\ud83d\udcca measured ${measured} of ${total} metrics reliably</span>`
     : "";
+  const confidenceBadge = _confidenceBadge(q);
 
   const warnHtml = warnings.length
     ? `<ul class="qb-warnings">${warnings.map(w => `<li>${w}</li>`).join("")}</ul>` : "";
 
   el.innerHTML = `
-    <div class="qb-row">${viewBadge}${handBadge}${measuredBadge}</div>
+    <div class="qb-row">${confidenceBadge}${viewBadge}${handBadge}${measuredBadge}</div>
     ${warnHtml}
   `;
   el.classList.remove("hidden");

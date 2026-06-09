@@ -125,6 +125,50 @@ def test_segmenter_no_false_peak_on_flat_stream():
     assert SEG.find_events(frames, 30.0) == []
 
 
+def _stickhandling_multishot(n=300, shots=(70, 160, 250)):
+    """Between shots the dominant wrist drifts (stickhandling) which inflates the
+    speed MAD; at each shot frame it spikes sharply (the release). Mirrors the
+    pole repo's noisy-approach fixture, but for hockey's sharp wrist-speed signal:
+    the release peak sits well above the median even with the drift, so the
+    PEAK_K=4 threshold still isolates each real shot.
+    """
+    import math, random
+    random.seed(3)
+    frames = []
+    for i in range(n):
+        x = 0.5 + 0.06 * math.sin(i / 9.0) + random.uniform(-0.02, 0.02)
+        y = 0.5 + 0.04 * math.cos(i / 7.0)
+        for c in shots:
+            if abs(i - c) < 5:
+                x = 0.5 + 0.22 * (1 - abs(i - c) / 5)  # sharp release spike
+        frames.append({"frame": i, "landmarks": {
+            "right_wrist":    {"x": x,   "y": y,   "v": 1.0},
+            "right_shoulder": {"x": 0.4, "y": 0.4, "v": 1.0},
+            "left_shoulder":  {"x": 0.6, "y": 0.4, "v": 1.0},
+        }})
+    return frames
+
+
+def test_segmenter_detects_shots_amid_stickhandling():
+    # Regression: between-shot stickhandling inflates the speed MAD, but the
+    # sharp release spike still clears PEAK_K=4 — every real shot is found once.
+    frames = _stickhandling_multishot()
+    sp = SEG._smooth(SEG._wrist_speed_series(frames, "right", 30.0),
+                     int(round(SEG.SMOOTH_S * 30.0)))
+    vals = sorted(v for _, v in sp)
+    med = vals[len(vals) // 2]
+    mad = sorted(abs(v - med) for v in vals)[len(vals) // 2]
+    peak = max(v for _, v in sp)
+    # The hockey signal is sharp: the peak is many MAD above the median (unlike
+    # the pole apex, which is only ~2 MAD up). This is why PEAK_K=4 holds.
+    assert (peak - med) / mad > 8.0
+
+    events = SEG.find_events(frames, 30.0)
+    assert len(events) == 3
+    for got, want in zip(sorted(e["frame"] for e in events), (70, 160, 250)):
+        assert abs(got - want) <= 4
+
+
 def test_events_to_windows_merges_overlaps():
     # two events 20 frames apart with 45-frame padding → windows overlap → merge
     events = [{"frame": 50, "confidence": 0.8}, {"frame": 70, "confidence": 1.0}]

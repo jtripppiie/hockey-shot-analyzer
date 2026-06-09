@@ -172,8 +172,14 @@ def _analyze_video(video_path: str, display_name: str, job_id: str):
         overall = result["summary"]["overall"]
 
         # Return scores immediately — render overlay in background thread
-        _append_history(display_name, result, job_id)
-        _save_job_json(job_id, display_name, meta, result)
+        try:
+            _append_history(display_name, result, job_id)
+        except Exception as e:
+            log_error("append_history", e, context={"job_id": job_id})
+        try:
+            _save_job_json(job_id, display_name, meta, result)
+        except Exception as e:
+            log_error("save_job_json", e, context={"job_id": job_id})
 
         # Copy upload to a temp path for background rendering
         render_src = UPLOAD_DIR / f"{job_id}_render.mp4"

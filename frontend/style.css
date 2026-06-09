@@ -205,7 +205,7 @@ body.modal-open { overflow: hidden; }
     padding-top: 8px;
   }
   .hero-art-shell {
-    min-height: 430px;
+    min-height: 400px;
     border-radius: 24px;
   }
   .hero-body {
@@ -256,7 +256,7 @@ body.modal-open { overflow: hidden; }
 }
 .hero-art-shell {
   position: relative;
-  min-height: 430px;
+  min-height: 400px;
   border-radius: 24px;
   overflow: hidden;
   background:
@@ -916,7 +916,7 @@ body.modal-open { overflow: hidden; }
 
   .hero { gap: 18px; padding: 8px 0 16px; margin-top: 4px; }
   .hero-art-shell {
-    min-height: 240px;
+    min-height: 200px;
     border-radius: 24px;
   }
   .hero-art-rink {

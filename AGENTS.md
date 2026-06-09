@@ -121,7 +121,7 @@ only large local asset (gitignored).
    near zero for a static clip). `quality_report["shot_check"]` carries
    `{hip_rise, wrist_travel, looks_like_shot, reject}`. Thresholds:
    `SHOT_GROUNDED_WARN=0.14` / `SHOT_AIRBORNE_REJECT=0.20` (hips) and
-   `SHOT_MOTION_WARN=0.18` / `SHOT_MOTION_REJECT=0.10` (wrist). Outside the warn
+   `SHOT_MOTION_WARN=0.18` / `SHOT_MOTION_REJECT=0.06` (wrist). Outside the warn
    band, a prominent "This doesn't look like a hockey shot…" message is
    **inserted at the front** of `quality_report["warnings"]` (still scored).
    When `reject` is set (airborne *or* too static), `_analyze_video` raises

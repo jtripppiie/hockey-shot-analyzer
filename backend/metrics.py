@@ -116,7 +116,7 @@ def _angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
 SHOT_GROUNDED_WARN = 0.14    # hips rise more than this → probably airborne, warn
 SHOT_AIRBORNE_REJECT = 0.20  # hips rise this much → almost certainly not a shot
 SHOT_MOTION_WARN = 0.18      # wrist travels less than this → motion looks too small
-SHOT_MOTION_REJECT = 0.10    # wrist barely moves → almost certainly not a shot
+SHOT_MOTION_REJECT = 0.06    # wrist barely moves → almost certainly not a shot
 
 
 def _hip_rise(frames: list[dict]) -> float:

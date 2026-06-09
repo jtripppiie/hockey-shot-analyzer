@@ -135,6 +135,18 @@ function _renderHeroSummary(data) {
   lineEl.textContent = tagline;
 }
 
+function _setResultReadout(data, measuredScored, topPriorityKey) {
+  const measuredEl = document.getElementById("measuredCount");
+  const priorityEl = document.getElementById("priorityLabel");
+  const fileEl = document.getElementById("filenameLabel");
+  if (measuredEl) measuredEl.textContent = String(measuredScored.length);
+  if (priorityEl) {
+    const metric = topPriorityKey ? data.metrics?.[topPriorityKey] : null;
+    priorityEl.textContent = metric?.coaching?.label || topPriorityKey?.replace(/_/g, " ") || "None";
+  }
+  if (fileEl) fileEl.textContent = data.filename || "Current clip";
+}
+
 // Quality / data-confidence banner
 function _renderQualityBanner(q) {
   let el = document.getElementById("qualityBanner");
@@ -573,9 +585,6 @@ function renderResults(data) {
   document.getElementById("sub-technique").querySelector(".sub-val").style.color = scoreColor(s.technique || 0);
   document.getElementById("sub-timing").querySelector(".sub-val").style.color    = scoreColor(s.timing    || 0);
 
-  const fnEl = document.getElementById("filenameLabel");
-  if (fnEl) fnEl.textContent = data.filename || "";
-
   // Data-quality banner (camera angle warnings, unmeasured metrics, etc.)
   _renderQualityBanner(data.quality_report);
 
@@ -589,6 +598,7 @@ function renderResults(data) {
   const unmeasured     = measured.filter(([, , m]) => m.score == null || m.status === "unmeasured");
   measuredScored.sort((a, b) => (a[2].score ?? 999) - (b[2].score ?? 999));
   const topPriorityKey = measuredScored.length && measuredScored[0][2].score < 75 ? measuredScored[0][0] : null;
+  _setResultReadout(data, measuredScored, topPriorityKey);
   for (const [key, meta, m] of [...measuredScored, ...unmeasured]) {
     grid.insertAdjacentHTML("beforeend", _metricCardHtml(key, meta, m, key === topPriorityKey));
   }
@@ -648,6 +658,7 @@ async function showHistory() {
             <span class="history-pill" style="color:#d29922">⚡ ${row.timing}</span>
           </div>
         </div>
+        <div class="history-open">Open analysis</div>
       </div>
       <button class="history-delete" title="Delete this shot" onclick="deleteHistoryItem(event,'${row.job_id}')">🗑</button>
     `;
@@ -670,6 +681,20 @@ async function openHistoryDetail(jobId) {
   detail.classList.remove("hidden");
   const content = document.getElementById("historyDetailContent");
   content.innerHTML = "";
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "history-detail-toolbar";
+  toolbar.innerHTML = `
+    <div>
+      <h3>${data.filename || "Saved shot"}</h3>
+      <p>${data.date || ""}</p>
+    </div>
+    <div class="history-detail-actions">
+      <button class="btn-ghost small" type="button" onclick="window.open('/report/${jobId}', '_blank')">Open player report</button>
+      <button class="btn-ghost small" type="button" onclick="window.open('/report/${jobId}?expert=1', '_blank')">Open expert report</button>
+    </div>
+  `;
+  content.appendChild(toolbar);
 
   // Build metric cards HTML for the right-side breakdown
   let metricCards = "";

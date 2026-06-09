@@ -218,7 +218,11 @@
           <span class="result-hero-num" id="overallNum">—</span>
           <span class="result-hero-band" id="overallBand"></span>
           <p class="result-hero-tagline" id="overallTagline">Analyzing…</p>
-          <p class="result-hero-file" id="filenameLabel"></p>
+          <div class="result-readout" aria-label="Result summary">
+            <span><b id="measuredCount">—</b> measured</span>
+            <span><b id="priorityLabel">—</b> priority</span>
+            <span id="filenameLabel"></span>
+          </div>
         </div>
         <div class="result-hero-subs">
           <div class="sub-score" id="sub-power">
@@ -413,7 +417,7 @@
       <div id="historyList" class="history-list"></div>
 
       <div id="historyDetail" class="hidden">
-        <button class="btn-ghost small" onclick="closeHistoryDetail()" style="margin-bottom:16px">⬅ Back to History</button>
+        <button class="btn-ghost small" onclick="closeHistoryDetail()" style="margin-bottom:16px">Back to History</button>
         <div id="historyDetailContent"></div>
       </div>
     </section>

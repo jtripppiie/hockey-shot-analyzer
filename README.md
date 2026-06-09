@@ -183,7 +183,8 @@ Each analyzed clip can be exported as a printable HTML report (Ctrl+P → Save a
 - **Player report** — `/report/{job_id}` &nbsp; AI score, sub-scores, shot breakdown, coaching tips. **No feedback shown.**
 - **Expert report** — `/report/{job_id}?expert=1` &nbsp; same plus all the Expert Feedback entries with AI-vs-human deltas and reviewer notes.
 
-The expert panel has buttons for both — just click them after a shot is analyzed.
+The expert panel has buttons for both after a shot is analyzed. Saved clips also
+show the same report actions from **History** → open a clip.
 
 ### What we DON'T do (yet)
 

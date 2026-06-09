@@ -23,6 +23,7 @@
         </div>
         <div class="topbar-actions">
           <button id="historyBtn" class="btn-ghost" onclick="showHistory()">History</button>
+          <button id="sessionsBtn" class="btn-ghost" onclick="showSessions()">Sessions</button>
           <button id="settingsBtn" class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings" aria-controls="settingsOverlay" aria-expanded="false">⚙</button>
           <button class="btn-ghost" type="button" onclick="openRecordingTips()">Recording Tips</button>
         </div>
@@ -436,6 +437,32 @@
       <div id="historyDetail" class="hidden">
         <button class="btn-ghost small" onclick="closeHistoryDetail()" style="margin-bottom:16px">Back to History</button>
         <div id="historyDetailContent"></div>
+      </div>
+    </section>
+
+    <section id="sessionsSection" class="hidden screen screen-light">
+      <header class="topbar topbar-light">
+        <div class="topbar-brand">
+          <img src="/static/assets/hockey-player.png" class="brand-mark" alt="Hockey Shot Analyzer logo">
+          <span class="brand-text">Hockey Shot Analyzer</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-ghost" onclick="showUpload()">Analyze New Shot</button>
+          <button class="btn-ghost" onclick="showHistory()">History</button>
+          <button class="icon-btn" type="button" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
+      </header>
+
+      <div class="history-header">
+        <h2>Practice Sessions</h2>
+        <button class="btn-primary" onclick="createSession()">+ New Session</button>
+      </div>
+
+      <div id="sessionsList" class="history-list"></div>
+
+      <div id="sessionDetail" class="hidden">
+        <button class="btn-ghost small" onclick="closeSessionDetail()" style="margin-bottom:16px">Back to Sessions</button>
+        <div id="sessionDetailContent"></div>
       </div>
     </section>
 

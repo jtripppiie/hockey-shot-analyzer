@@ -906,9 +906,184 @@ async function clearAllHistory() {
   showHistory();
 }
 
+// ── Practice Sessions ─────────────────────────────────────────────────────────
+// Group several analyzed shots into one session and view a combined report
+// (averages + per-rep trends). Attempts are attached from existing history.
+const SESSION_SUBS = [
+  ["power", "💪 Power", "#58a6ff"],
+  ["technique", "🎯 Technique", "#3fb950"],
+  ["timing", "⚡ Timing", "#d29922"],
+];
+
+async function showSessions() {
+  showSection("sessionsSection");
+  document.getElementById("sessionDetail").classList.add("hidden");
+  document.getElementById("sessionsList").classList.remove("hidden");
+
+  const rows = await fetch(`${API}/sessions`).then(r => r.json()).catch(() => []);
+  const listEl = document.getElementById("sessionsList");
+  listEl.innerHTML = "";
+
+  if (!rows.length) {
+    listEl.innerHTML = `<div class="history-empty">No sessions yet.<br>Create one to group several shots into a combined report.</div>`;
+    return;
+  }
+
+  rows.forEach(s => {
+    const n = (s.job_ids || []).length;
+    const card = document.createElement("div");
+    card.className = "history-card";
+    card.innerHTML = `
+      <div class="history-thumb-placeholder">📋</div>
+      <div class="history-body">
+        <div class="history-filename" title="${escapeHtml(s.label || "Practice session")}">${escapeHtml(s.label || "Practice session")}</div>
+        <div class="history-date">${escapeHtml(s.created || "")}</div>
+        <div class="history-score-row">
+          <span class="history-pill">${n} ${n === 1 ? "attempt" : "attempts"}</span>
+        </div>
+        <div class="history-open">Open session</div>
+      </div>
+      <button class="history-delete" title="Delete this session" onclick="deleteSession(event,'${s.session_id}')">🗑</button>
+    `;
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".history-delete")) return;
+      openSessionDetail(s.session_id);
+    });
+    listEl.appendChild(card);
+  });
+}
+
+async function createSession() {
+  const label = (prompt("Name this session:", "Practice session") || "").trim();
+  if (label === "") return; // cancelled
+  const fd = new FormData();
+  fd.append("label", label);
+  const s = await fetch(`${API}/session`, { method: "POST", body: fd })
+    .then(r => r.json()).catch(() => null);
+  if (!s) { alert("Could not create session."); return; }
+  await showSessions();
+  openSessionDetail(s.session_id);
+}
+
+async function openSessionDetail(id) {
+  const summary = await fetch(`${API}/session/${id}/report?format=json`)
+    .then(r => r.json()).catch(() => null);
+  if (!summary) { alert("Could not load this session."); return; }
+
+  document.getElementById("sessionsList").classList.add("hidden");
+  document.getElementById("sessionDetail").classList.remove("hidden");
+  renderSessionDetail(id, summary);
+}
+
+function renderSessionDetail(id, summary) {
+  const attempts = summary.attempts || [];
+  const averages = summary.averages || {};
+  const trends = summary.trends || {};
+
+  const avgCell = (label, key, color) => {
+    const v = averages[key];
+    return `<div class="session-avg-cell">
+      <span class="session-avg-lbl">${label}</span>
+      <strong class="session-avg-val" style="color:${v != null ? color : "#9aa4b2"}">${v != null ? v : "—"}</strong>
+    </div>`;
+  };
+  const avgStrip = averages.overall != null || Object.keys(averages).length
+    ? `<div class="session-averages">
+         ${avgCell("Avg Overall", "overall", scoreColor(averages.overall || 0))}
+         ${SESSION_SUBS.map(([k, lbl, c]) => avgCell(lbl, k, c)).join("")}
+       </div>`
+    : "";
+
+  const rows = attempts.length
+    ? attempts.map((a, i) => {
+        const s = a.summary || {};
+        return `<tr>
+          <td>#${i + 1}</td>
+          <td class="muted">${escapeHtml(a.date || "")}</td>
+          <td><strong style="color:${scoreColor(a.overall || 0)}">${a.overall != null ? a.overall : "—"}</strong></td>
+          <td>${s.power != null ? s.power : "—"}</td>
+          <td>${s.technique != null ? s.technique : "—"}</td>
+          <td>${s.timing != null ? s.timing : "—"}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="6" class="muted">No attempts yet — add one from history below.</td></tr>`;
+
+  const trendItems = Object.keys(trends).length
+    ? `<ul class="session-trends">${Object.entries(trends)
+        .map(([k, v]) => `<li><code>${escapeHtml(k.replace(/_/g, " "))}</code> — ${escapeHtml(String(v))}</li>`)
+        .join("")}</ul>`
+    : `<p class="muted">Add at least two attempts to see trends.</p>`;
+
+  document.getElementById("sessionDetailContent").innerHTML = `
+    <div class="history-detail-toolbar">
+      <div>
+        <h3>${escapeHtml(summary.label || "Practice session")}</h3>
+        <p>${escapeHtml(summary.created || "")} · ${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"}</p>
+      </div>
+      <div class="history-detail-actions">
+        <button class="btn-ghost small" type="button" onclick="window.open('${API}/session/${id}/report?format=html','_blank')">Open session report</button>
+      </div>
+    </div>
+    ${avgStrip}
+    <table class="session-table">
+      <thead><tr><th>#</th><th>When</th><th>Overall</th><th>💪 Power</th><th>🎯 Technique</th><th>⚡ Timing</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <h3 class="section-title-inline">Trends</h3>
+    ${trendItems}
+    <h3 class="section-title-inline">Add attempt from history</h3>
+    <div id="sessionAttemptPicker" class="session-picker"></div>
+  `;
+  renderAttemptPicker(id);
+}
+
+async function renderAttemptPicker(id) {
+  const picker = document.getElementById("sessionAttemptPicker");
+  if (!picker) return;
+  const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
+  if (!rows.length) {
+    picker.innerHTML = `<p class="muted">No analyzed shots yet. Analyze a clip first, then add it here.</p>`;
+    return;
+  }
+  picker.innerHTML = [...rows].reverse().map(r => `
+    <button class="session-pick-row" type="button" onclick="attachAttempt('${id}','${r.job_id}')">
+      <span class="session-pick-score" style="color:${scoreColor(+r.overall)}">${r.overall}</span>
+      <span class="session-pick-name" title="${escapeHtml(r.filename || "")}">${escapeHtml(r.filename || r.job_id)}</span>
+      <span class="session-pick-date muted">${escapeHtml(r.date || "")}</span>
+      <span class="session-pick-add">+ Add</span>
+    </button>
+  `).join("");
+}
+
+async function attachAttempt(id, jobId) {
+  const fd = new FormData();
+  fd.append("job_id", jobId);
+  const s = await fetch(`${API}/session/${id}/attempt`, { method: "POST", body: fd })
+    .then(r => r.json()).catch(() => null);
+  if (!s) { alert("Could not add attempt."); return; }
+  openSessionDetail(id); // refresh detail (averages/trends recompute)
+}
+
+async function deleteSession(e, id) {
+  e.stopPropagation();
+  if (!confirm("Delete this session? The individual shots stay in history.")) return;
+  await fetch(`${API}/session/${id}`, { method: "DELETE" });
+  showSessions();
+}
+
+function closeSessionDetail() {
+  document.getElementById("sessionDetail").classList.add("hidden");
+  document.getElementById("sessionsList").classList.remove("hidden");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 // ── Navigation helpers ────────────────────────────────────────────────────────
 function showSection(id) {
-  ["uploadSection","progressSection","resultsSection","historySection"]
+  ["uploadSection","progressSection","resultsSection","historySection","sessionsSection"]
     .forEach(s => document.getElementById(s).classList.toggle("hidden", s !== id));
   document.body.dataset.screen = id.replace("Section", "");
   if (id !== "resultsSection") expertModeOn = false;

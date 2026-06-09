@@ -2040,3 +2040,55 @@ body.modal-open { overflow: hidden; }
 .camera-panel[data-cam-state="recording"] .cam-cancel { display: inline-flex; }
 .camera-panel[data-cam-state="recording"] .cam-start { display: none; }
 
+/* ─── Practice sessions ─────────────────────────────────────────────────── */
+.muted { color: var(--l-text-soft, #6b7280); }
+.section-title-inline { margin: 22px 0 10px; font-size: 1.05rem; }
+
+.session-averages { display: flex; flex-wrap: wrap; gap: 14px; margin: 16px 0 20px; }
+.session-avg-cell {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--l-surface, #f6f8fb);
+  border: 1px solid var(--l-border, #e2e6ee);
+  border-radius: 10px; padding: 10px 16px; min-width: 96px;
+}
+.session-avg-lbl {
+  font-size: 0.7rem; color: var(--l-text-soft, #6b7280);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.session-avg-val { font-size: 1.5rem; line-height: 1.1; }
+
+.session-table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
+.session-table th, .session-table td {
+  text-align: left; padding: 9px 12px;
+  border-bottom: 1px solid var(--l-border, #e2e6ee);
+}
+.session-table th {
+  background: var(--l-surface, #f6f8fb);
+  font-size: 0.75rem; color: var(--l-text-soft, #6b7280);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+
+.session-trends { margin: 4px 0 8px 18px; padding: 0; }
+.session-trends li { margin: 4px 0; }
+.session-trends code {
+  background: var(--l-surface, #f6f8fb);
+  padding: 2px 7px; border-radius: 5px; font-size: 0.8125rem;
+}
+
+.session-picker { display: flex; flex-direction: column; gap: 6px; }
+.session-pick-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 9px 12px; border-radius: 9px;
+  border: 1px solid var(--l-border, #e2e6ee);
+  background: #fff; font: inherit;
+}
+.session-pick-row:hover {
+  border-color: var(--l-border-strong, #cbd5e1);
+  background: var(--l-surface, #f6f8fb);
+}
+.session-pick-score { font-weight: 700; min-width: 34px; }
+.session-pick-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-pick-add { font-size: 0.8125rem; color: var(--l-accent, #2563eb); font-weight: 600; }
+
+

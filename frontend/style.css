@@ -1113,12 +1113,13 @@ body.modal-open { overflow: hidden; }
   display: grid;
   gap: 16px;
 }
-.analysis-dashboard > .result-hero,
-.analysis-dashboard > .result-block,
-.analysis-dashboard > .result-video {
+.analysis-dashboard .result-hero,
+.analysis-dashboard .result-block,
+.analysis-dashboard .result-video {
   max-width: none;
   margin: 0;
 }
+.dashboard-main { display: contents; }
 
 /* Quality banner — pills */
 .quality-banner {
@@ -1195,20 +1196,32 @@ body.modal-open { overflow: hidden; }
 @media (min-width: 1180px) {
   .analysis-dashboard {
     max-width: var(--page-width-wide);
-    grid-template-columns: minmax(260px, 0.78fr) minmax(500px, 1.48fr) minmax(320px, 0.95fr);
-    grid-template-areas:
-      "score video report"
-      "breakdown video report";
+    grid-template-columns: minmax(0, 2.26fr) minmax(320px, 0.95fr);
+    grid-template-areas: "main report";
     align-items: start;
   }
   #resultsSection > .topbar {
     max-width: var(--page-width-wide);
   }
-  .analysis-dashboard > .result-hero { grid-area: score; }
-  .analysis-dashboard > .result-video { grid-area: video; }
-  .analysis-dashboard > .result-breakdown { grid-area: breakdown; }
+  .analysis-dashboard > .dashboard-main {
+    display: grid;
+    grid-area: main;
+    gap: 16px;
+    grid-template-columns: minmax(260px, 0.78fr) minmax(500px, 1.48fr);
+    grid-template-areas:
+      "score video"
+      "breakdown breakdown";
+    align-items: stretch;
+  }
+  .dashboard-main > .result-hero { grid-area: score; }
+  .dashboard-main > .result-video { grid-area: video; display: flex; flex-direction: column; }
+  .dashboard-main > .result-video .result-video-frame { flex: 1 1 auto; min-height: 0; }
+  .dashboard-main > .result-breakdown { grid-area: breakdown; }
   .analysis-dashboard > .coach-report { grid-area: report; }
-  .analysis-dashboard > .result-hero { grid-template-columns: 1fr; gap: 18px; }
+  .dashboard-main > .result-hero { grid-template-columns: 1fr; gap: 18px; }
+  .dashboard-main > .result-breakdown .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .result-hero-main {
   position: relative;

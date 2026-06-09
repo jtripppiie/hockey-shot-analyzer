@@ -2,6 +2,44 @@
 
 const API = "";  // same origin — FastAPI serves frontend
 
+// ── Global error reporting ─────────────────────────────────────────────────
+// Forward uncaught JS errors + unhandled promise rejections to the backend so
+// they land in output/error_log.jsonl alongside server errors. Best-effort and
+// throttled so a tight error loop can't spam the log or the network.
+let _lastErrorReport = 0;
+function reportClientError(where, message, extra = {}) {
+  const now = Date.now();
+  if (now - _lastErrorReport < 1000) return;  // throttle: max ~1/sec
+  _lastErrorReport = now;
+  try {
+    fetch(`${API}/client-error`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        where,
+        message: String(message || "").slice(0, 2000),
+        url: location.href,
+        user_agent: navigator.userAgent,
+        ...extra,
+      }),
+      keepalive: true,  // still sends if the page is unloading
+    }).catch(() => {});  // never let reporting throw
+  } catch (_) { /* no-op */ }
+}
+
+window.addEventListener("error", (e) => {
+  reportClientError("window.onerror", e.message, {
+    line: e.lineno, column: e.colno,
+    stack: e.error && e.error.stack ? String(e.error.stack) : "",
+  });
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const r = e.reason;
+  reportClientError("unhandledrejection",
+    r && r.message ? r.message : String(r),
+    { stack: r && r.stack ? String(r.stack) : "" });
+});
+
 // Tracks the currently-displayed job
 let currentJob = null;
 let expertModeOn = false;

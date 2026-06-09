@@ -34,6 +34,7 @@ import feedback as feedback_mod
 from report import render_report, render_session_report
 import session as session_mod
 from segmenter import suggest_segments
+from errors import log_error, recent_errors
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
@@ -52,6 +53,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request, exc):
+    """Catch-all: record any unhandled error before returning a clean 500.
+    HTTPExceptions are handled by FastAPI's own handler and skip this."""
+    log_error(
+        f"unhandled:{request.method} {request.url.path}",
+        exc,
+        context={"path": request.url.path, "method": request.method},
+    )
+    return JSONResponse(status_code=500, content={"detail": "server_error"})
 
 # Serve overlay videos / frames from output dir
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
@@ -110,7 +123,7 @@ async def analyze_youtube(
     try:
         title = _download_youtube_clip(url, str(download_path), start_sec, end_sec)
     except Exception as e:
-        logging.error("YouTube download failed:\n" + traceback.format_exc())
+        log_error("analyze-youtube:download", e, context={"url": url})
         raise HTTPException(422, f"youtube_download_failed: {e}")
 
     try:
@@ -171,8 +184,8 @@ def _analyze_video(video_path: str, display_name: str, job_id: str):
                 render_overlay(str(render_src), str(overlay_video),
                                overall_score=overall, frames_landmarks=frames)
                 extract_key_frame(str(render_src), str(key_frame))
-            except Exception:
-                logging.error("Overlay render failed:\n" + traceback.format_exc())
+            except Exception as e:
+                log_error("overlay_render", e, context={"job_id": job_id})
             finally:
                 if render_src.exists():
                     render_src.unlink()
@@ -192,8 +205,8 @@ def _analyze_video(video_path: str, display_name: str, job_id: str):
 
     except HTTPException:
         raise
-    except Exception:
-        logging.error("Analysis exception:\n" + traceback.format_exc())
+    except Exception as e:
+        log_error("analyze_video", e, context={"job_id": job_id, "filename": display_name})
         raise HTTPException(500, "server_error")
 
 
@@ -569,4 +582,32 @@ async def capture_frame(
         "t_sec": float(t_sec),
         "filename": out_name,
     })
+
+
+# ── Error logging (browser-side reports + viewer) ────────────────────────────
+@app.post("/client-error")
+async def client_error(payload: dict = Body(...)):
+    """Record a browser-side error. The frontend's global error handler POSTs
+    here; all fields are treated as untrusted and length-capped in errors.py."""
+    where = str(payload.get("where") or "client")[:200]
+    message = str(payload.get("message") or "")
+    context = {
+        "url":        str(payload.get("url") or "")[:300],
+        "user_agent": str(payload.get("user_agent") or "")[:300],
+        "line":       payload.get("line"),
+        "column":     payload.get("column"),
+    }
+    stack = payload.get("stack")
+    if stack:
+        context["stack"] = str(stack)[:4000]
+    log_error(f"frontend:{where}", message=message, context=context,
+              severity="error", source="frontend")
+    return JSONResponse({"ok": True})
+
+
+@app.get("/errors")
+def get_errors(limit: int = 50):
+    """Return the most recent logged errors (newest first) for review."""
+    return recent_errors(limit)
+
 

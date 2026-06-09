@@ -6,12 +6,13 @@ Given the per-frame landmarks for a whole practice stream (the same
 attempt (slap shot) happens and return a list of cut windows. Each window can
 then be trimmed and fed to the existing analyzer as its own job.
 
-This is a SKELETON. The signal it uses — dominant-wrist speed peaks — is the
-same idea the single-clip release detector in `metrics._detect_phases` uses,
-generalized to find MULTIPLE peaks across a long recording. The peak-picking and
-window math here are intentionally simple/conservative placeholders with TODOs;
-they must be tuned and validated against real multi-rep clips before being
-trusted (see ROADMAP Phase 3, and the project rule: accuracy > speed).
+This is a SKELETON for the surrounding pipeline (route + window handoff), but the
+detection core is now implemented: the dominant-wrist speed signal is smoothed,
+true local maxima are picked, and overlapping/again-too-close peaks are removed
+by non-max suppression. The numeric constants (PEAK_K, gap, padding, smoothing
+width) are reasonable defaults that still need calibration against real
+multi-rep clips before being fully trusted (see ROADMAP Phase 3, and the project
+rule: accuracy > speed).
 
 Design intent (per ROADMAP):
 - Phase 2 uses MANUAL cut points; this module is the Phase 3 auto-suggester.
@@ -30,12 +31,20 @@ PRE_EVENT_S = 1.5
 POST_EVENT_S = 1.5
 
 # Minimum gap between two accepted events, in seconds. Prevents a single shot's
-# multi-frame speed plateau from registering as several reps.
+# multi-frame speed plateau from registering as several reps (enforced by NMS).
 MIN_EVENT_GAP_S = 2.0
 
 # A candidate peak must exceed (median + K*MAD) of the speed signal to count as
 # a real attempt rather than ambient motion (skating, adjusting, etc.).
 PEAK_K = 4.0
+
+# Centered moving-average width for the speed signal, in seconds. Removes
+# single-frame jitter so local-maxima picking lands on the real peak.
+SMOOTH_S = 0.12
+
+# Drop suggested windows shorter than this (e.g. a peak clamped at a stream
+# edge). A real attempt is always longer than this.
+MIN_ATTEMPT_S = 0.75
 
 
 def _wrist_speed_series(frames: list[dict], dom: str, fps: float):
@@ -74,12 +83,32 @@ def _peak_threshold(speeds: list[tuple]) -> float:
     return med + PEAK_K * mad
 
 
+def _smooth(speeds: list[tuple], win: int) -> list[tuple]:
+    """Centered moving average over the speed values, preserving frame indices.
+    `win` is forced odd and >= 1; win <= 1 is a no-op."""
+    n = len(speeds)
+    if win <= 1 or n == 0:
+        return speeds
+    if win % 2 == 0:
+        win += 1
+    half = win // 2
+    vals = [s for _, s in speeds]
+    out = []
+    for i in range(n):
+        lo = max(0, i - half)
+        hi = min(n, i + half + 1)
+        window = vals[lo:hi]
+        out.append((speeds[i][0], sum(window) / len(window)))
+    return out
+
+
 def find_events(frames: list[dict], fps: float) -> list[dict]:
     """Find candidate attempt events in a long stream.
 
     Returns a list of {"frame": peak_idx, "score": speed, "confidence": 0..1}
-    ordered by frame. SKELETON: greedy peak-pick with a refractory gap. Replace
-    with a proper local-maxima + non-max-suppression pass when tuning.
+    ordered by frame. Pipeline: dominant-wrist speed → moving-average smoothing →
+    local-maxima above a robust (median + K*MAD) threshold → non-max suppression
+    by a minimum frame gap → confidence calibrated against the strongest peak.
     """
     dom = _detect_dominant_hand([f for f in frames if f.get("landmarks")])
     if not dom:
@@ -89,49 +118,74 @@ def find_events(frames: list[dict], fps: float) -> list[dict]:
     if not speeds:
         return []
 
+    speeds = _smooth(speeds, int(round(SMOOTH_S * fps)))
     thr = _peak_threshold(speeds)
+    if not math.isfinite(thr):
+        return []
     gap_frames = int(round(MIN_EVENT_GAP_S * fps))
 
-    # TODO(Phase 3): true local-maxima detection + non-max suppression instead of
-    # this greedy "above threshold and far enough from last accepted" scan.
-    # TODO(Phase 3): smooth the speed series first (short moving average) to avoid
-    # picking jitter, mirroring the single-clip detector.
-    events = []
-    last_idx = None
-    for frame_idx, speed in speeds:
-        if speed < thr:
+    # True local maxima above threshold: strictly greater than the previous
+    # sample and >= the next, so a rising-then-flat peak is caught once.
+    candidates = []
+    for k in range(1, len(speeds) - 1):
+        idx, s = speeds[k]
+        if s < thr:
             continue
-        if last_idx is not None and (frame_idx - last_idx) < gap_frames:
-            # Keep the stronger of the two within the refractory window.
-            if speed > events[-1]["score"]:
-                events[-1] = {"frame": frame_idx, "score": speed, "confidence": 0.0}
-                last_idx = frame_idx
-            continue
-        events.append({"frame": frame_idx, "score": speed, "confidence": 0.0})
-        last_idx = frame_idx
+        if s > speeds[k - 1][1] and s >= speeds[k + 1][1]:
+            candidates.append({"frame": idx, "score": s})
 
-    # TODO(Phase 3): map raw speed → calibrated 0..1 confidence for the UI.
-    return events
+    # Non-max suppression: take peaks strongest-first, reject any that fall
+    # within gap_frames of an already-accepted (stronger) peak.
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+    accepted: list[dict] = []
+    for c in candidates:
+        if all(abs(c["frame"] - a["frame"]) >= gap_frames for a in accepted):
+            accepted.append(c)
+
+    # Calibrate confidence: how far above threshold relative to the strongest
+    # accepted peak. strongest → 1.0, exactly-at-threshold → 0.0.
+    smax = max((a["score"] for a in accepted), default=thr)
+    span = smax - thr
+    for a in accepted:
+        a["confidence"] = round((a["score"] - thr) / span, 3) if span > 0 else 1.0
+
+    accepted.sort(key=lambda a: a["frame"])
+    return accepted
 
 
 def events_to_windows(events: list[dict], fps: float, total_frames: int) -> list[dict]:
     """Convert detected events into clamped [start_frame, end_frame] cut windows.
 
-    Returns a list of {"start", "end", "event"} dicts. These are SUGGESTED cuts;
-    the UI lets the user confirm/adjust before each window is trimmed and sent to
-    the analyzer (Phase 3).
+    Overlapping windows (two events closer than the padding) are merged into one
+    clip, and windows shorter than MIN_ATTEMPT_S (e.g. a peak clamped at a stream
+    edge) are dropped. Returns {"start", "end", "event", "confidence"} dicts;
+    these are SUGGESTED cuts the UI lets the user confirm/adjust before analysis.
     """
     pre = int(round(PRE_EVENT_S * fps))
     post = int(round(POST_EVENT_S * fps))
-    windows = []
-    for ev in events:
+    min_len = int(round(MIN_ATTEMPT_S * fps))
+
+    raw = []
+    for ev in sorted(events, key=lambda e: e["frame"]):
         start = max(0, ev["frame"] - pre)
         end = min(total_frames - 1, ev["frame"] + post)
-        windows.append({"start": start, "end": end, "event": ev["frame"]})
+        raw.append({"start": start, "end": end, "event": ev["frame"],
+                    "confidence": ev.get("confidence", 0.0)})
 
-    # TODO(Phase 3): merge overlapping windows (two close events → one clip) and
-    # drop windows shorter than a sane minimum attempt length.
-    return windows
+    # Merge overlapping/adjacent windows; the merged window keeps the event +
+    # confidence of its strongest contributor.
+    merged: list[dict] = []
+    for w in raw:
+        if merged and w["start"] <= merged[-1]["end"]:
+            prev = merged[-1]
+            prev["end"] = max(prev["end"], w["end"])
+            if w["confidence"] > prev["confidence"]:
+                prev["event"] = w["event"]
+                prev["confidence"] = w["confidence"]
+        else:
+            merged.append(dict(w))
+
+    return [w for w in merged if (w["end"] - w["start"]) >= min_len]
 
 
 def suggest_segments(frames: list[dict], fps: float, total_frames: int) -> list[dict]:

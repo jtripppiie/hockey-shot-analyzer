@@ -101,8 +101,19 @@ projection, so a camera that's 10–20° off true side-on no longer flattens
 the knee bend or inflates the rotation score. A true side-on shot is still
 ideal, but it isn't make-or-break the way it once was.
 
-The **🎥 Tips for the best results** card on the upload screen has the
-same list with a bit more detail per item.
+The **Recording Tips** button in the upload header opens a video-search shortcut
+for side-view filming examples. It replaces the old on-page tips card so the
+upload screen stays compact.
+
+## 👤 Player Profile (optional)
+
+The upload header also has a **Player Profile** button. It opens a compact
+profile panel for optional details like player name, age, shooting hand, and
+position. The values are remembered in your browser's `localStorage`, so you
+can fill them in once and keep uploading clips without retyping.
+
+Everything is optional. Skip the profile entirely and the analyzer behaves as
+before. Click **Clear** in the profile panel to wipe the saved values.
 
 ---
 

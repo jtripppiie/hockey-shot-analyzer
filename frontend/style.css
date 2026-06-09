@@ -655,6 +655,33 @@ main { width: 100%; }
   margin-top: 10px;
 }
 .profile-card .ctx-field-wide { grid-column: span 2; }
+.profile-privacy {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.hero-art-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(4, 30, 66, 0.08) 0%,
+      rgba(4, 30, 66, 0.22) 45%,
+      rgba(4, 30, 66, 0.55) 100%
+    ),
+    var(--profile-photo, none);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.88;
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-art-shell .hero-art-backdrop,
+.hero-art-shell .hero-art-rink,
+.hero-art-shell .hero-art,
+.hero-art-shell .hero-art-callout { position: relative; z-index: 1; }
 .tips-card::before,
 .ctx-card::before {
   content: "";

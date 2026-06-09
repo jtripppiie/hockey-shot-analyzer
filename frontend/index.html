@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=compact-upload-profile-2" />
+  <link rel="stylesheet" href="/static/style.css?v=profile-personalize-1" />
 </head>
 <body data-screen="upload">
 
@@ -35,30 +35,36 @@
         </summary>
         <div class="ctx-grid profile-grid">
           <label class="ctx-field">
-            <span>Player name</span>
-            <div class="ctx-row"><input type="text" id="profileName" placeholder="Name"></div>
+            <span>Athlete photo <span class="hint">(local only)</span></span>
+            <div class="ctx-row"><input type="file" id="profilePhoto" accept="image/*"></div>
           </label>
           <label class="ctx-field">
-            <span>Age</span>
-            <div class="ctx-row"><input type="number" id="profileAge" min="4" max="80" placeholder="Age" inputmode="numeric"></div>
-          </label>
-          <label class="ctx-field">
-            <span>Shoots</span>
+            <span>Accent color</span>
             <div class="ctx-row">
-              <select id="profileShoots">
-                <option value="">—</option>
+              <select id="profileAccent">
+                <option value="capitals">Capitals Red</option>
+                <option value="leafs">Leafs Blue</option>
+                <option value="oilers">Oilers Orange</option>
+                <option value="green">Green</option>
+                <option value="black">Black</option>
+              </select>
+            </div>
+          </label>
+          <label class="ctx-field ctx-field-wide">
+            <span>Shooting hand override <span class="hint">(auto-detect unless changed)</span></span>
+            <div class="ctx-row">
+              <select id="profileHandOverride">
+                <option value="auto">Auto-detect</option>
                 <option value="left">Left</option>
                 <option value="right">Right</option>
               </select>
             </div>
           </label>
-          <label class="ctx-field">
-            <span>Position</span>
-            <div class="ctx-row"><input type="text" id="profilePosition" placeholder="Forward, defense, etc."></div>
-          </label>
         </div>
+        <p class="profile-privacy">Everything stays on this device. No account required.</p>
         <div class="ctx-actions">
           <button class="btn-ghost small" type="button" onclick="clearPlayerProfile()">Clear</button>
+          <button class="btn-ghost small" type="button" onclick="startFresh()">Start Fresh</button>
           <span id="profileStatus" class="fb-status"></span>
         </div>
       </details>

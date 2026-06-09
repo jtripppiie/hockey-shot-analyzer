@@ -245,7 +245,30 @@ async function submitYouTube() {
 
 // ── Player profile (optional, persisted locally) ───────────────────────────
 const PLAYER_PROFILE_KEY = "hockeyPlayerProfile.v1";
-const PLAYER_PROFILE_FIELDS = ["profileName", "profileAge", "profileShoots", "profilePosition"];
+const PLAYER_PROFILE_FIELDS = ["profileAccent", "profileHandOverride"];
+const PLAYER_PROFILE_PHOTO_KEY = "hockeyPlayerProfile.photo.v1";
+
+const ACCENT_PRESETS = {
+  capitals: { blue: "#C8102E", blue2: "#A50D25", red: "#C8102E" },
+  leafs: { blue: "#003E7E", blue2: "#002F61", red: "#003E7E" },
+  oilers: { blue: "#FF4C00", blue2: "#D84300", red: "#FF4C00" },
+  green: { blue: "#16A34A", blue2: "#15803D", red: "#16A34A" },
+  black: { blue: "#111827", blue2: "#030712", red: "#111827" },
+};
+
+function _applyAccent(accent) {
+  const preset = ACCENT_PRESETS[accent] || ACCENT_PRESETS.capitals;
+  document.documentElement.style.setProperty("--blue", preset.blue);
+  document.documentElement.style.setProperty("--blue-2", preset.blue2);
+  document.documentElement.style.setProperty("--red", preset.red);
+}
+
+function _applyProfilePhoto(photoDataUrl) {
+  const shell = document.querySelector(".hero-art-shell");
+  if (!shell) return;
+  if (photoDataUrl) shell.style.setProperty("--profile-photo", `url(${photoDataUrl})`);
+  else shell.style.removeProperty("--profile-photo");
+}
 
 function _readPlayerProfile() {
   const profile = {};
@@ -262,6 +285,7 @@ function _savePlayerProfile() {
   const profile = _readPlayerProfile();
   if (Object.keys(profile).length === 0) localStorage.removeItem(PLAYER_PROFILE_KEY);
   else localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
+  _applyAccent(profile.profileAccent);
   const status = document.getElementById("profileStatus");
   if (status) {
     status.textContent = "Saved";
@@ -274,10 +298,28 @@ function _loadPlayerProfile() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(PLAYER_PROFILE_KEY) || "{}"); }
   catch (e) { saved = {}; }
+  if (!saved.profileAccent) saved.profileAccent = "capitals";
+  if (!saved.profileHandOverride) saved.profileHandOverride = "auto";
   for (const id of PLAYER_PROFILE_FIELDS) {
     const el = document.getElementById(id);
     if (el && saved[id] != null) el.value = saved[id];
   }
+  _applyAccent(saved.profileAccent);
+  _applyProfilePhoto(localStorage.getItem(PLAYER_PROFILE_PHOTO_KEY) || "");
+}
+
+function _savePlayerPhoto(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || "");
+    if (!dataUrl) return;
+    localStorage.setItem(PLAYER_PROFILE_PHOTO_KEY, dataUrl);
+    _applyProfilePhoto(dataUrl);
+    const status = document.getElementById("profileStatus");
+    if (status) { status.textContent = "Photo saved"; setTimeout(() => { status.textContent = ""; }, 1200); }
+  };
+  reader.readAsDataURL(file);
 }
 
 function togglePlayerProfile() {
@@ -293,11 +335,22 @@ function togglePlayerProfile() {
 function clearPlayerProfile() {
   for (const id of PLAYER_PROFILE_FIELDS) {
     const el = document.getElementById(id);
-    if (el) el.value = "";
+    if (el) el.value = id === "profileAccent" ? "capitals" : "auto";
   }
+  const photo = document.getElementById("profilePhoto");
+  if (photo) photo.value = "";
   localStorage.removeItem(PLAYER_PROFILE_KEY);
+  localStorage.removeItem(PLAYER_PROFILE_PHOTO_KEY);
+  _applyAccent("capitals");
+  _applyProfilePhoto("");
   const status = document.getElementById("profileStatus");
   if (status) { status.textContent = "Cleared"; setTimeout(() => { status.textContent = ""; }, 1200); }
+}
+
+function startFresh() {
+  localStorage.clear();
+  clearPlayerProfile();
+  resetUI();
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -306,6 +359,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("change", _savePlayerProfile);
   }
+  const photo = document.getElementById("profilePhoto");
+  if (photo) photo.addEventListener("change", () => _savePlayerPhoto(photo.files?.[0]));
 });
 
 async function _submitAnalyze(endpoint, form, initialMsg) {

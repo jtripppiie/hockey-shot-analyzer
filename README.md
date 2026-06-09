@@ -107,13 +107,14 @@ upload screen stays compact.
 
 ## 👤 Player Profile (optional)
 
-The upload header also has a **Player Profile** button. It opens a compact
-profile panel for optional details like player name, age, shooting hand, and
-position. The values are remembered in your browser's `localStorage`, so you
-can fill them in once and keep uploading clips without retyping.
+The upload header also has a **Player Profile** button. It opens a compact,
+local-only panel for athlete photo, accent color, and an optional shooting-hand
+override. The override defaults to auto-detect and does not affect scoring yet;
+it is saved locally for the next implementation slice.
 
 Everything is optional. Skip the profile entirely and the analyzer behaves as
-before. Click **Clear** in the profile panel to wipe the saved values.
+before. Click **Clear** in the profile panel to wipe the saved values, or
+**Start Fresh** to clear local app settings/history and return to defaults.
 
 ---
 

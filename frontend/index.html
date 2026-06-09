@@ -6,8 +6,8 @@
   <title>Hockey Shot Analyzer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=compact-upload-profile-2" />
 </head>
 <body data-screen="upload">
 
@@ -22,9 +22,46 @@
           <span class="brand-text">Hockey Shot Analyzer</span>
         </div>
         <div class="topbar-actions">
+          <button id="playerProfileBtn" class="btn-ghost" type="button" onclick="togglePlayerProfile()" aria-controls="playerProfile" aria-expanded="false">Player Profile</button>
+          <a class="btn-ghost" href="https://www.youtube.com/results?search_query=how+to+record+hockey+shot+side+view" target="_blank" rel="noopener">Recording Tips</a>
           <button id="historyBtn" class="btn-ghost" onclick="showHistory()">History</button>
         </div>
       </header>
+
+      <details class="ctx-card profile-card" id="playerProfile">
+        <summary>
+          <span class="ctx-summary-text">Player Profile <span class="hint">(optional, remembered)</span></span>
+          <span class="ctx-summary-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="ctx-grid profile-grid">
+          <label class="ctx-field">
+            <span>Player name</span>
+            <div class="ctx-row"><input type="text" id="profileName" placeholder="Name"></div>
+          </label>
+          <label class="ctx-field">
+            <span>Age</span>
+            <div class="ctx-row"><input type="number" id="profileAge" min="4" max="80" placeholder="Age" inputmode="numeric"></div>
+          </label>
+          <label class="ctx-field">
+            <span>Shoots</span>
+            <div class="ctx-row">
+              <select id="profileShoots">
+                <option value="">—</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+          </label>
+          <label class="ctx-field">
+            <span>Position</span>
+            <div class="ctx-row"><input type="text" id="profilePosition" placeholder="Forward, defense, etc."></div>
+          </label>
+        </div>
+        <div class="ctx-actions">
+          <button class="btn-ghost small" type="button" onclick="clearPlayerProfile()">Clear</button>
+          <span id="profileStatus" class="fb-status"></span>
+        </div>
+      </details>
 
       <!-- HERO -->
       <div class="hero">
@@ -104,28 +141,28 @@
             </div>
           </div>
 
-          <!-- Side-by-side meta -->
-          <div class="hero-meta">
-            <div class="hero-meta-block">
-              <h4>Best Results</h4>
-              <ul>
-                <li><strong>True side-on:</strong> perpendicular to puck direction</li>
-                <li><strong>Hip-height camera:</strong> cleaner joint-angle reads</li>
-                <li><strong>1080p / 60 fps:</strong> smoother release timing</li>
-                <li><strong>Single attempt:</strong> one player fully in frame</li>
-              </ul>
-            </div>
-            <div class="hero-meta-block">
-              <h4>You&rsquo;ll Receive</h4>
-              <ul>
-                <li><strong>Overlay film:</strong> pose-tracked replay</li>
-                <li><strong>Score breakdown:</strong> power, technique, timing</li>
-                <li><strong>Coach report:</strong> strengths and weak links</li>
-                <li><strong>Drill plan:</strong> practice built for your gap</li>
-              </ul>
-            </div>
-          </div>
+        </div>
 
+        <!-- Side-by-side meta -->
+        <div class="hero-meta">
+          <div class="hero-meta-block">
+            <h4>Best Results</h4>
+            <ul>
+              <li><strong>True side-on:</strong> perpendicular to puck direction</li>
+              <li><strong>Hip-height camera:</strong> cleaner joint-angle reads</li>
+              <li><strong>1080p / 60 fps:</strong> smoother release timing</li>
+              <li><strong>Single attempt:</strong> one player fully in frame</li>
+            </ul>
+          </div>
+          <div class="hero-meta-block">
+            <h4>You&rsquo;ll Receive</h4>
+            <ul>
+              <li><strong>Overlay film:</strong> pose-tracked replay</li>
+              <li><strong>Score breakdown:</strong> power, technique, timing</li>
+              <li><strong>Coach report:</strong> strengths and weak links</li>
+              <li><strong>Drill plan:</strong> practice built for your gap</li>
+            </ul>
+          </div>
         </div>
       </div><!-- /hero -->
 
@@ -203,6 +240,8 @@
 
       <!-- 1. Quality banner is injected here by app.js -->
 
+      <div class="analysis-dashboard">
+
       <!-- 2. Hero summary -->
       <section class="result-hero">
         <div class="result-hero-main">
@@ -249,7 +288,7 @@
       </section>
 
       <!-- 4. Shot breakdown -->
-      <section class="result-block">
+      <section class="result-block result-breakdown">
         <div class="result-block-head">
           <h2>Shot Breakdown</h2>
           <p class="hint">Sorted by biggest opportunity first.</p>
@@ -267,6 +306,8 @@
         <div id="coachFocus" class="coach-block focus"></div>
         <div id="coachDrills" class="coach-drills"></div>
       </section>
+
+      </div>
 
       <!-- 6. Expert feedback (desktop-only, hidden by default) -->
       <div id="expertPanel" class="expert-panel hidden">
@@ -426,6 +467,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=profile-top"></script>
 </body>
 </html>

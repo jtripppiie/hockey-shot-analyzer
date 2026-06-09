@@ -132,7 +132,10 @@ function _renderQualityBanner(q) {
     el.id = "qualityBanner";
     el.className = "quality-banner hidden";
     const results = document.getElementById("resultsSection");
-    if (results) results.insertBefore(el, results.firstChild);
+    const topbar = results?.querySelector(".topbar");
+    const actions = topbar?.querySelector(".topbar-actions");
+    if (topbar) topbar.insertBefore(el, actions || null);
+    else if (results) results.insertBefore(el, results.firstChild);
   }
   if (!q) { el.classList.add("hidden"); return; }
 
@@ -240,6 +243,71 @@ async function submitYouTube() {
   await _submitAnalyze("/analyze-youtube", form, "Downloading YouTube clip…");
 }
 
+// ── Player profile (optional, persisted locally) ───────────────────────────
+const PLAYER_PROFILE_KEY = "hockeyPlayerProfile.v1";
+const PLAYER_PROFILE_FIELDS = ["profileName", "profileAge", "profileShoots", "profilePosition"];
+
+function _readPlayerProfile() {
+  const profile = {};
+  for (const id of PLAYER_PROFILE_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const value = (el.value || "").trim();
+    if (value !== "") profile[id] = value;
+  }
+  return profile;
+}
+
+function _savePlayerProfile() {
+  const profile = _readPlayerProfile();
+  if (Object.keys(profile).length === 0) localStorage.removeItem(PLAYER_PROFILE_KEY);
+  else localStorage.setItem(PLAYER_PROFILE_KEY, JSON.stringify(profile));
+  const status = document.getElementById("profileStatus");
+  if (status) {
+    status.textContent = "Saved";
+    clearTimeout(_savePlayerProfile._t);
+    _savePlayerProfile._t = setTimeout(() => { status.textContent = ""; }, 1200);
+  }
+}
+
+function _loadPlayerProfile() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PLAYER_PROFILE_KEY) || "{}"); }
+  catch (e) { saved = {}; }
+  for (const id of PLAYER_PROFILE_FIELDS) {
+    const el = document.getElementById(id);
+    if (el && saved[id] != null) el.value = saved[id];
+  }
+}
+
+function togglePlayerProfile() {
+  const card = document.getElementById("playerProfile");
+  const btn = document.getElementById("playerProfileBtn");
+  if (!card) return;
+  const open = !card.classList.contains("profile-open");
+  card.classList.toggle("profile-open", open);
+  card.open = open;
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function clearPlayerProfile() {
+  for (const id of PLAYER_PROFILE_FIELDS) {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  }
+  localStorage.removeItem(PLAYER_PROFILE_KEY);
+  const status = document.getElementById("profileStatus");
+  if (status) { status.textContent = "Cleared"; setTimeout(() => { status.textContent = ""; }, 1200); }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  _loadPlayerProfile();
+  for (const id of PLAYER_PROFILE_FIELDS) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", _savePlayerProfile);
+  }
+});
+
 async function _submitAnalyze(endpoint, form, initialMsg) {
   showSection("progressSection");
   setProgress(10, initialMsg);
@@ -332,6 +400,50 @@ function _pollVideo(videoEl, url, maxTries) {
   setTimeout(check, 4000);
 }
 
+function _isDebugResultsMode() {
+  const params = new URLSearchParams(window.location.search);
+  const host = window.location.hostname;
+  const allowedHost = ["localhost", "127.0.0.1", ""].includes(host) || host.endsWith(".trycloudflare.com");
+  return params.get("debugResults") === "1" && allowedHost;
+}
+
+function _debugMetric(score, grade, value, tip, label, why, drill) {
+  return {
+    score,
+    grade,
+    value,
+    tip,
+    coaching: { label, tier: grade, tip, why, drill },
+  };
+}
+
+function _debugResultsData() {
+  return {
+    job_id: "debug-hockey",
+    filename: "debug-shot-dashboard.mp4",
+    frame_url: "",
+    video_url: "",
+    debug: true,
+    summary: { overall: 72, power: 78, technique: 66, timing: 74 },
+    quality_report: {
+      camera_view: "side",
+      dominant_hand: "right",
+      measured_metrics: 6,
+      total_metrics: 7,
+      warnings: ["Debug fixture: no upload or backend analysis was run."],
+    },
+    metrics: {
+      knee_bend: _debugMetric(82, "good", 118, "Good load depth. Keep the knees active without sitting too low.", "Knee Bend", "A strong knee load helps create power before release.", "Do 3 sets of 10 slow load-and-release reps, pausing at your deepest knee bend."),
+      hip_rotation: _debugMetric(69, "ok", 42, "Start the hips a little earlier so the shot is not mostly arms.", "Hip Rotation", "Earlier hip rotation links your lower body to the stick path.", "Take 20 half-speed shots focused only on opening the hips before the hands fire."),
+      shoulder_rotation: _debugMetric(76, "good", 58, "Shoulders are rotating well. Keep them stacked over the puck lane.", "Shoulder Rotation", "Clean shoulder rotation keeps the blade moving through the target line.", "Use a pause-at-load drill, then rotate shoulders through the shot on command."),
+      weight_transfer: _debugMetric(61, "ok", 64, "Push more fully from the back skate into the front side.", "Weight Transfer", "Better transfer turns the body load into puck speed.", "Shoot 15 pucks while exaggerating the back-foot push and front-side brace."),
+      follow_through: _debugMetric(84, "good", 88, "Follow-through is strong and pointed toward the target.", "Follow-Through", "A complete finish keeps direction and power through contact.", "Place a target high corner and freeze your finish for one second after every shot."),
+      head_stability: _debugMetric(73, "ok", 71, "Head is mostly stable. Keep eyes quieter through release.", "Head Stability", "A quiet head makes the release more repeatable.", "Take 10 shots while tracking the puck until after contact, then check your finish."),
+      release_timing: { status: "unmeasured", score: null, reason: "Debug fixture leaves one metric unmeasured.", tip: "This lets you see the unmeasured card state while designing." },
+    },
+  };
+}
+
 // ── Render results ────────────────────────────────────────────────────────────
 function renderResults(data) {
   currentJob = data;
@@ -344,9 +456,13 @@ function renderResults(data) {
   video.removeAttribute("poster");
   video.load();
   const statusEl = document.getElementById("videoStatus");
-  if (statusEl) statusEl.textContent = "⏳ Building overlay video…";
-  _pollPoster(video, data.frame_url, 30);
-  _pollVideo(video, data.video_url, 60);
+  if (data.debug) {
+    if (statusEl) statusEl.textContent = "Debug fixture: no overlay video loaded.";
+  } else {
+    if (statusEl) statusEl.textContent = "⏳ Building overlay video…";
+    _pollPoster(video, data.frame_url, 30);
+    _pollVideo(video, data.video_url, 60);
+  }
 
   // Overall badge
   const s = data.summary;
@@ -403,6 +519,10 @@ function renderResults(data) {
   document.getElementById("coachFocus").innerHTML = parts.focus;
   document.getElementById("coachDrills").innerHTML = parts.drills;
 }
+
+window.addEventListener("DOMContentLoaded", () => {
+  if (_isDebugResultsMode()) renderResults(_debugResultsData());
+});
 
 // ── History ───────────────────────────────────────────────────────────────────
 async function showHistory() {

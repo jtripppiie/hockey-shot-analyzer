@@ -451,6 +451,8 @@ backend/         FastAPI app, pose detection, biomechanics, overlay rendering
   segmenter.py   Multi-rep attempt detection (smoothing + local maxima + NMS)
   errors.py      Centralized append-only error log (output/error_log.jsonl)
   test_session.py  Self-contained tests (python test_session.py)
+  test_errors.py   Error-log tests: clear + opt-in cap (python test_errors.py)
+  test_segment.py  Segment-trim tests (python test_segment.py; needs ffmpeg)
 frontend/        The web page (no build step — just HTML/CSS/JS)
 output/
   history.csv          summary row per analyzed clip
@@ -495,7 +497,9 @@ exception handler catches anything that escapes a route, and the frontend's
 global error handlers forward uncaught browser errors automatically. The
 **Clear log** button in Diagnostics asks for confirmation, then calls
 `POST /errors/clear` and reports how many entries were removed. The log is
-never rotated and is `.gitignore`d.
+append-only and not rotated by default; set the `ERROR_LOG_MAX_LINES`
+environment variable to a positive integer to keep only the newest N entries.
+It is `.gitignore`d.
 
 ## 🎬 Multi-attempt clips
 

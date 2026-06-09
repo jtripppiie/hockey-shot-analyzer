@@ -17,13 +17,15 @@ Security notes:
 - All free-text fields are length-capped so a malicious or buggy client cannot
   bloat the log with one giant entry.
 - The reader tolerates malformed lines (skips them) rather than crashing.
-There is intentionally no rotation (matches the feedback log); add one behind a
-flag if the file ever gets large.
+Rotation is off by default (append-only, like the feedback log). Set the
+ERROR_LOG_MAX_LINES env var to a positive integer to keep only the newest N
+entries after each write.
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import traceback as _traceback
 import uuid
 from datetime import datetime
@@ -46,6 +48,15 @@ _MAX_CONTEXT_JSON = 4000
 
 _VALID_SEVERITY = {"info", "warning", "error", "critical"}
 
+# Optional, opt-in rotation. Disabled by default (0) so the log stays
+# append-only like the feedback log. Set ERROR_LOG_MAX_LINES to a positive
+# integer to keep only the newest N entries after each write.
+def _read_max_log_lines() -> int:
+    try:
+        return max(0, int(os.environ.get("ERROR_LOG_MAX_LINES", "0") or 0))
+    except ValueError:
+        return 0
+
 
 def _clip(s: Any, limit: int) -> str:
     s = "" if s is None else str(s)
@@ -67,6 +78,29 @@ def _safe_context(context: Any) -> dict:
     if len(json.dumps(out)) > _MAX_CONTEXT_JSON:
         return {"_note": "context omitted (too large)"}
     return out
+
+
+def _enforce_cap(path: Path) -> None:
+    """If ERROR_LOG_MAX_LINES > 0, trim the log to the newest N lines.
+    Flag-gated and best-effort: never raises, never blocks logging."""
+    cap = _read_max_log_lines()
+    if cap <= 0:
+        return
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except OSError:
+        return
+    if len(lines) <= cap:
+        return
+    keep = lines[-cap:]
+    try:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        with open(tmp, "w") as f:
+            f.writelines(keep)
+        tmp.replace(path)
+    except OSError:
+        pass
 
 
 def log_error(
@@ -120,6 +154,7 @@ def log_error(
         path.parent.mkdir(exist_ok=True)
         with open(path, "a") as f:
             f.write(json.dumps(entry) + "\n")
+        _enforce_cap(path)
     except OSError:
         # Last resort: if we can't write the log file, don't crash the caller.
         logging.error("Failed to write error_log.jsonl:\n%s", _traceback.format_exc())

@@ -15,7 +15,7 @@ decisions below are intentional and should not be undone without discussion.
   7. **Practice Sessions** — group multiple analyzed clips into a named session and see averages + first-vs-last trends per metric. Backend `backend/session.py` (sport-agnostic `summarize_session`, JSON-per-session under `output/session_*.json`); UI in the **Sessions** topbar button (`sessionsSection`). Session reports render via `report.py::render_session_report`.
   8. **Multi-rep segmenter, wired into the UI** (`backend/segmenter.py` + routes) — smoothing + true local-maxima + non-max suppression to suggest attempt windows in a multi-shot clip (replaces the old greedy peak-pick). Exposed via `POST /suggest-segments` (caches the source as `uploads/{seg_job}_multi.*`, returns windows in seconds + confidence) and `POST /analyze-segment` (frame-accurate ffmpeg trim of one window via `_trim_clip`, then `_analyze_video`). Frontend: opt-in **“Find attempts →”** on upload → `findSegments()` → **Suggested Attempts** screen (`segmentsSection`, `renderSegments()`) → per-attempt `analyzeSegment()`. Segmenter constants still need calibration against real multi-rep footage.
   9. **Centralized error logging** — append-only `output/error_log.jsonl` via `backend/errors.py` (`log_error` / `recent_errors` / `clear_errors`). A global `@app.exception_handler(Exception)` catches escaped route errors; the browser forwards uncaught JS errors to `POST /client-error`; `GET /errors` returns the newest entries; `POST /errors/clear` wipes the log. Viewable in-app under **Settings → Diagnostics** (`#diagnostics`, `loadErrors()`), with a confirm-guarded **Clear log** button (`clearErrors()`).
-  10. **Self-contained tests** (`backend/test_session.py`) — runnable via plain `python test_session.py` (no pytest/httpx needed); covers session round-trip, summary averages/trends, and segmenter peak detection.
+  10. **Self-contained tests** (`backend/test_session.py`, `backend/test_errors.py`, `backend/test_segment.py`) — runnable via plain `python test_*.py` (no pytest/httpx needed); cover session round-trip, summary averages/trends, segmenter peak detection, the error log (`clear_errors` + the opt-in `ERROR_LOG_MAX_LINES` cap), and the `_trim_clip` / suggest→trim segment round-trip.
 - **App version constant:** `APP_VERSION = "0.2.0-expert-feedback"` in
   `backend/feedback.py`.
 - **Sibling repo:** `pole-vault-analyzer` (mirrored structure, same patterns).
@@ -105,8 +105,11 @@ only large local asset (gitignored).
    `output/error_log.jsonl` and never raises. Backend catches call it with the
    exception; the frontend's global `error` / `unhandledrejection` handlers POST
    to `/client-error` (source `frontend`). All `/client-error` fields are
-   untrusted and length-capped in `errors.py`. There is intentionally no log
-   rotation (matches the feedback log). Prefer `log_error` over ad-hoc
+   untrusted and length-capped in `errors.py`. The error log is append-only and
+   not rotated by default, but rotation is opt-in: set `ERROR_LOG_MAX_LINES` to
+   a positive integer and `errors._enforce_cap` trims to the newest N entries
+   after each write (the feedback log is never capped — it holds human
+   corrections). Prefer `log_error` over ad-hoc
    `logging.error` so failures are actually reviewable in **Settings →
    Diagnostics**.
 
@@ -118,6 +121,8 @@ only large local asset (gitignored).
 | `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
 | `backend/segmenter.py` | Multi-rep attempt detection (smoothing + local maxima + NMS); `suggest_segments`, `events_to_windows`; surfaced via `/suggest-segments` + `/analyze-segment` |
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
+| `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
+| `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip (needs ffmpeg; `python test_segment.py`) |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |
 ... `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, settings/tips/onboarding helpers (`openSettings`, `closeSettings`, `openRecordingTips`, `closeRecordingTips`, `acceptOnboardingCustomize`, `skipOnboarding`), player profile helpers (`clearPlayerProfile`, `startFresh`), sessions helpers (`showSessions`, `openSessionDetail`), segmenter helpers (`findSegments`, `renderSegments`, `analyzeSegment`), error reporter (`reportClientError`) + Diagnostics (`loadErrors`, `clearErrors`) |

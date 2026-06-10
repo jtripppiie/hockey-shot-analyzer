@@ -576,7 +576,8 @@ def _measure_weight_transfer(frames, dom, phases):
 
 # ── Main entry ───────────────────────────────────────────────────────────────
 def compute_metrics(frames: list[dict], fps: float = 60.0,
-                    hand_override: str | None = None) -> dict:
+                    hand_override: str | None = None,
+                    precheck_cuts: int = 0) -> dict:
     """
     Returns dict with:
       metrics:        {key: {value, score|None, grade, status, reason?, tip,
@@ -629,8 +630,11 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
     # Continuity check: a montage / multi-scene clip teleports the body between
     # cuts, which can fake a hip rise and break phase detection. Warn (don't
     # reject — a single fast pan shouldn't hard-block) so the user knows why.
+    # Two independent signals corroborate: the pose-based body-teleport detector
+    # below and an optional pixel-level pre-check (`precheck_cuts`) passed in by
+    # the caller, which still catches cuts when pose tracking drops at a splice.
     cut_count, max_jump = _scene_cuts(valid)
-    looks_continuous = cut_count == 0
+    looks_continuous = cut_count == 0 and precheck_cuts == 0
     if not looks_continuous:
         warnings.insert(0, "This clip looks like it contains camera cuts or multiple"
                         " scenes. Upload a single continuous attempt — one shot, one"
@@ -725,6 +729,7 @@ def compute_metrics(frames: list[dict], fps: float = 60.0,
             },
             "continuity_check": {
                 "cut_count":        cut_count,
+                "pixel_cut_count":  precheck_cuts,
                 "max_jump":         max_jump,
                 "looks_continuous": looks_continuous,
             },

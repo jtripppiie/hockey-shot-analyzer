@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 
 from metrics import compute_metrics
 from overlay import extract_key_frame, render_overlay
-from pose import get_video_meta, run_pose_detection
+from pose import get_video_meta, run_pose_detection, scene_cut_precheck
 import feedback as feedback_mod
 from report import render_report, render_session_report
 import session as session_mod
@@ -164,16 +164,47 @@ def _analyze_video(video_path: str, display_name: str, job_id: str,
         detection_rate = len(detected) / max(len(frames), 1)
 
         if detection_rate < 0.1:
+            log_error("reject:no_body_detected", severity="info",
+                      message="rejected: no body detected",
+                      context={"job_id": job_id, "detection_rate": round(detection_rate, 3),
+                               "n_frames": len(frames)})
             raise HTTPException(422, "no_body_detected")
         if detection_rate < 0.4:
+            log_error("reject:poor_detection", severity="info",
+                      message="rejected: poor detection",
+                      context={"job_id": job_id, "detection_rate": round(detection_rate, 3),
+                               "n_frames": len(frames)})
             raise HTTPException(422, "poor_detection")
 
+        # Pixel-level scene-cut pre-check (no pose): an independent corroborating
+        # signal to the pose-based body-teleport detector. It still catches
+        # splices when pose tracking drops out at the cut, so we run it on the
+        # raw video and feed its count into compute_metrics.
+        precheck = scene_cut_precheck(video_path)
+
         # Compute metrics
-        result = compute_metrics(frames, fps=meta["fps"], hand_override=hand_override)
+        result = compute_metrics(frames, fps=meta["fps"], hand_override=hand_override,
+                                 precheck_cuts=precheck["pixel_cuts"])
         if not result:
             raise HTTPException(422, "metrics_failed")
-        if result["quality_report"].get("shot_check", {}).get("reject"):
+        q = result["quality_report"]
+        if q.get("shot_check", {}).get("reject"):
+            # Telemetry: record the signal values behind every rejection so we
+            # can tell genuine non-shots from over-tight thresholds (a clip a
+            # real user expected to score). Viewable in Settings → Diagnostics.
+            log_error("reject:not_a_hockey_shot", severity="info",
+                      message="rejected: not a hockey shot",
+                      context={"job_id": job_id, "shot_check": q.get("shot_check"),
+                               "continuity_check": q.get("continuity_check")})
             raise HTTPException(422, "not_a_hockey_shot")
+
+        # Warn-only continuity: log when an accepted clip still trips the cut
+        # detector, so a stream of false alarms (or real montages) is visible.
+        cc = q.get("continuity_check", {})
+        if not cc.get("looks_continuous", True):
+            log_error("warn:camera_cuts", severity="info",
+                      message="flagged: clip looks discontinuous (camera cuts)",
+                      context={"job_id": job_id, "continuity_check": cc})
 
         overall = result["summary"]["overall"]
 

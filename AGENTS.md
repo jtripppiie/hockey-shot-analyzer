@@ -154,6 +154,51 @@ only large local asset (gitignored).
    `test_continuity_passes_continuous_clip` /
    `test_continuity_flags_montage_cut` in `test_session.py`.
 
+13. **Real-footage regression corpus** — The guards above (shot/sport,
+   continuity) were calibrated against real YouTube clips; to keep them from
+   silently regressing, those clips are frozen as gzipped landmark fixtures in
+   `backend/fixtures/*.landmarks.json.gz` (pose already run, so no MediaPipe at
+   test time) and replayed through `compute_metrics` by
+   `backend/test_real_clips.py`. Fixture schema:
+   `{clip, fps, n_frames, detection_rate, frames:[{frame, landmarks}]}` (coords
+   rounded 4dp, world coords included). Each clip has an `EXPECT` row asserting
+   its guard classification (e.g. `montage_slap` → shot=False, continuous=False;
+   `hk_real_brady` → shot=True, continuous=True). The same five fixtures live in
+   both repos with sport-appropriate expectations — notably
+   `test_continuity_catches_montage_sport_guard_misses` on the pole side proves
+   the two guards are complementary (the montage fools `sport_check` but the
+   continuity guard still catches it). Fixtures are **git-tracked** (not ignored)
+   so the corpus travels with the code; run `python test_real_clips.py`.
+
+14. **False-reject telemetry** — To tell genuine non-shots from over-tight
+   thresholds, every rejection path in `_analyze_video` logs an **`info`**-level
+   entry via `log_error` (from `backend/errors.py`) *before* raising the 422,
+   capturing the signal values behind the decision: `reject:no_body_detected` /
+   `reject:poor_detection` (with `detection_rate`), `reject:not_a_hockey_shot`
+   (with the full `shot_check` + `continuity_check`). Accepted-but-flagged clips
+   log `warn:camera_cuts` with the `continuity_check`. These are `severity:info`
+   (not errors), share the append-only `output/error_log.jsonl`, and surface in
+   **Settings → Diagnostics** — so a stream of rejects a real user expected to
+   score becomes visible without changing behaviour. Mirrored in the pole repo
+   (`reject:not_a_pole_vault`, `sport_check`).
+
+15. **Pixel scene-cut pre-check** — An independent, pose-free corroboration of
+   the continuity guard (#12). `scene_cut_precheck(video_path)` in
+   `backend/pose.py` decodes the raw clip at 64×64 grayscale and flags frames
+   whose frame-to-frame mean abs-difference is both ≥ `PRECHECK_MAD_K=14` MADs
+   above the clip's median *and* ≥ `PRECHECK_ABS_FLOOR=0.04` (absolute floor so
+   pixel noise on a near-static clip can't manufacture cuts). `_analyze_video`
+   runs it on the upload and passes `pixel_cuts` into `compute_metrics` as
+   `precheck_cuts`; `looks_continuous` now requires **both** detectors clear
+   (`cut_count == 0 and precheck_cuts == 0`), and `continuity_check` gains a
+   `pixel_cut_count` field. The value: it still catches splices when pose
+   tracking drops out *at* the cut (a montage drops ~28% of frames) — verified
+   live, where the pixel check found **3** cuts on a montage the pose detector
+   scored at 2. Calibrated on real footage (continuous clips peak ~12 MAD, a
+   montage spikes ~68 MAD). **WARN only.** Sport-agnostic, mirrored verbatim in
+   the pole repo. Regression tests: `test_precheck_flags_montage_cut` /
+   `test_precheck_ignores_continuous_motion` in `test_segment.py`.
+
 | Path | Purpose |
 |------|---------|
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_multi` helpers; global `@app.exception_handler(Exception)` |
@@ -163,7 +208,9 @@ only large local asset (gitignored).
 | `backend/segmenter.py` | Multi-rep attempt detection (smoothing + local maxima + NMS); `suggest_segments`, `events_to_windows`; surfaced via `/suggest-segments` + `/analyze-segment` |
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
-| `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip (needs ffmpeg; `python test_segment.py`) |
+| `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip + `scene_cut_precheck` (needs ffmpeg; `python test_segment.py`) |
+| `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
+| `backend/fixtures/*.landmarks.json.gz` | Git-tracked gzipped landmark fixtures (real YouTube clips, pose pre-run) backing `test_real_clips.py` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |
 ... `currentJob` global; `captureFrame(prefix)`, `submitFeedback()`, `submitMeasurementFeedback()`, `setProgress()` (also writes `--pct` to `#progressScene`), `_refreshExpertVisibility()`, settings/tips/onboarding helpers (`openSettings`, `closeSettings`, `openRecordingTips`, `closeRecordingTips`, `acceptOnboardingCustomize`, `skipOnboarding`), player profile helpers (`clearPlayerProfile`, `startFresh`), sessions helpers (`showSessions`, `openSessionDetail`), segmenter helpers (`findSegments`, `renderSegments`, `analyzeSegment`), error reporter (`reportClientError`) + Diagnostics (`loadErrors`, `clearErrors`) |

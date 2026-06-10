@@ -115,6 +115,54 @@ def test_suggest_then_trim_round_trip():
             assert abs(_duration_s(dst) - (end - start)) < 0.5
 
 
+def _make_montage(path: Path, fps: int = 30) -> None:
+    """Two visually distinct scenes spliced together — a hard cut at the seam."""
+    subprocess.run(
+        ["ffmpeg", "-y",
+         "-f", "lavfi", "-i", f"color=c=green:s=320x240:d=3:r={fps}",
+         "-f", "lavfi", "-i", f"color=c=blue:s=320x240:d=3:r={fps}",
+         "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]", "-map", "[v]",
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path)],
+        capture_output=True, text=True, check=True,
+    )
+
+
+def _make_motion_clip(path: Path, seconds: int = 4, fps: int = 30) -> None:
+    """A single continuous clip with smooth internal motion (no cut)."""
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi",
+         "-i", f"testsrc=s=320x240:d={seconds}:r={fps}",
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path)],
+        capture_output=True, text=True, check=True,
+    )
+
+
+def test_precheck_flags_montage_cut():
+    """The pixel scene-cut pre-check must catch a hard splice between scenes."""
+    if not _ffmpeg_available():
+        print("  skip test_precheck_flags_montage_cut (no ffmpeg)")
+        return
+    from pose import scene_cut_precheck
+    with tempfile.TemporaryDirectory() as d:
+        clip = Path(d) / "montage.mp4"
+        _make_montage(clip)
+        r = scene_cut_precheck(str(clip))
+        assert r["pixel_cuts"] >= 1, r
+
+
+def test_precheck_ignores_continuous_motion():
+    """Smooth in-scene motion must NOT be mistaken for a cut (no false alarm)."""
+    if not _ffmpeg_available():
+        print("  skip test_precheck_ignores_continuous_motion (no ffmpeg)")
+        return
+    from pose import scene_cut_precheck
+    with tempfile.TemporaryDirectory() as d:
+        clip = Path(d) / "motion.mp4"
+        _make_motion_clip(clip)
+        r = scene_cut_precheck(str(clip))
+        assert r["pixel_cuts"] == 0, r
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

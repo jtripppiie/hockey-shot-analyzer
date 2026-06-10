@@ -74,6 +74,56 @@ def get_video_meta(video_path: str) -> dict:
     return {"fps": fps, "total_frames": total, "width": w, "height": h}
 
 
+# Pixel scene-cut pre-check tuning. A "cut" is a frame whose grayscale
+# difference from the previous frame is both wildly prominent relative to the
+# clip's own motion (>= PRECHECK_MAD_K median-absolute-deviations above the
+# median diff) AND large in absolute terms (PRECHECK_ABS_FLOOR), so a static
+# clip's pixel noise can't manufacture phantom cuts. Calibrated on real
+# footage: continuous clips peak at ~12 MAD, a spliced montage spikes to ~68
+# MAD at each splice. This is an independent corroborating signal to the
+# pose-based body-teleport detector in metrics.py — it still flags cuts even
+# when pose tracking drops out at the splice. WARN-only; never a hard reject.
+PRECHECK_MAD_K = 14.0
+PRECHECK_ABS_FLOOR = 0.04
+
+
+def scene_cut_precheck(video_path: str, downscale: int = 64) -> dict:
+    """
+    Cheap pixel-level scene-cut detector (no pose). Decodes the clip at a small
+    grayscale resolution and looks for abrupt frame-to-frame jumps that betray a
+    hard cut between spliced scenes.
+
+    Returns {"pixel_cuts": int, "peak_prominence": float} — peak_prominence is
+    the largest single-frame jump expressed in MADs above the median (0.0 when
+    the clip is too short to judge).
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return {"pixel_cuts": 0, "peak_prominence": 0.0}
+    prev = None
+    diffs = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        g = cv2.cvtColor(cv2.resize(frame, (downscale, downscale)),
+                         cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+        if prev is not None:
+            diffs.append(float(np.mean(np.abs(g - prev))))
+        prev = g
+    cap.release()
+
+    if len(diffs) < 8:
+        return {"pixel_cuts": 0, "peak_prominence": 0.0}
+
+    arr = np.asarray(diffs)
+    med = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - med))) or 1e-6
+    is_cut = (arr > med + PRECHECK_MAD_K * mad) & (arr > PRECHECK_ABS_FLOOR)
+    peak_prom = (float(arr.max()) - med) / mad
+    return {"pixel_cuts": int(is_cut.sum()), "peak_prominence": round(peak_prom, 1)}
+
+
 def run_pose_detection(video_path: str, sample_every: int = 1,
                        smooth_alpha: float = 0.5) -> list[dict]:
     """

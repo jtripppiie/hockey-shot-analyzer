@@ -278,6 +278,32 @@ only large local asset (gitignored).
    verbatim in the pole repo. Tests: `backend/test_training.py`
    (`python test_training.py`).
 
+19. **Batch-eval accuracy harness** — The guards (#11/#12/#15) and the heuristic
+   scores were calibrated on a handful of clips; nothing measured the
+   false-reject / false-accept rate across a realistic spread. `backend/
+   batch_eval.py` closes that evidence gap: point it at a folder of clips
+   (`python batch_eval.py CLIPS_DIR [--manifest m.csv] [--out report.csv]`) and
+   it runs each through the **real** pipeline (pose → `scene_cut_precheck` →
+   `compute_metrics`) **minus the overlay render**, writing one CSV row per clip
+   with the accept/reject decision, the signals behind it (`detection_rate`,
+   `shot_check`, `continuity_check`), and the scores. The decision logic lives in
+   a pure, unit-tested `classify_clip(...)` that mirrors `_analyze_video`'s
+   gates **exactly** (frame/duration/readable → detection 0.1/0.4 → metrics →
+   `shot_check.reject` → continuity warn) — if you change a gate in `main.py`,
+   change it here too. An optional manifest (`file,expect,expect_continuous`;
+   `expect ∈ {shot, not_shot}`) makes `summarize_rows` compute shot-guard
+   confusion (false-reject/accept rates, accuracy) and continuity accuracy, with
+   the offending filenames listed. The pure core (`classify_clip`,
+   `summarize_rows`, `_guard_accuracy`) needs no MediaPipe/OpenCV — heavy imports
+   are lazy inside `evaluate_clip` — so `test_batch_eval.py` runs everywhere and
+   also **replays the frozen real-footage fixtures** through
+   `compute_metrics + classify_clip` to prove the harness's accept/reject matches
+   the production guards. Sport-mirrored to the pole repo (`sport_check` /
+   `looks_like_vault` / `vault_rise`, reject `not_a_pole_vault`, `expect ∈
+   {vault, not_vault}`; the montage is *accepted-with-cut-warning* there, since
+   the vault sport guard doesn't catch it). Tests: `backend/test_batch_eval.py`
+   (`python test_batch_eval.py`).
+
 | Path | Purpose |
 |------|---------|
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`, `/training/report`; `_save_upload` / `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `_limit_upload_size` middleware; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
@@ -286,11 +312,13 @@ only large local asset (gitignored).
 | `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
 | `backend/segmenter.py` | Multi-rep attempt detection (smoothing + local maxima + NMS); `suggest_segments`, `events_to_windows`; surfaced via `/suggest-segments` + `/analyze-segment` |
 | `backend/training.py` | Feedback-driven calibration (pure/read-only): `fit_linear_calibration`, `build_calibration_report`; surfaced via `GET /training/report` + Settings → Training & Calibration |
+| `backend/batch_eval.py` | Accuracy harness: runs a clip folder through the real pipeline (no render) → CSV of decisions+signals+scores; pure `classify_clip`/`summarize_rows` + manifest-based guard confusion (`python batch_eval.py CLIPS_DIR`) |
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
 | `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip + `scene_cut_precheck` (needs ffmpeg; `python test_segment.py`) |
 | `backend/test_cleanup.py` | Self-contained tests for storage retention: `_sweep_old_uploads`, `_enforce_history_cap`, `_delete_job_artifacts`, plus the `_save_upload` size cap (`python test_cleanup.py`) |
 | `backend/test_training.py` | Self-contained tests for calibration: `fit_linear_calibration` recovery/bias, readiness gate, per-metric flags (`python test_training.py`) || `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
+| `backend/test_batch_eval.py` | Self-contained tests for the accuracy harness: `classify_clip` gates, `summarize_rows`/guard-confusion, + fixture replay proving harness matches production guards (`python test_batch_eval.py`) |
 | `backend/fixtures/*.landmarks.json.gz` | Git-tracked gzipped landmark fixtures (real YouTube clips, pose pre-run) backing `test_real_clips.py` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |

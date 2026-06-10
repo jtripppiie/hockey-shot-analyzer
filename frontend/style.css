@@ -337,26 +337,36 @@ body.modal-open { overflow: hidden; }
 .hero-art-svg,
 .hero-art-img { display: none; }
 
-.hero-art-callout {
-  position: absolute;
-  max-width: 138px;
-  padding: 8px 11px 8px 13px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(4, 30, 66, 0.08);
-  border-left: 3px solid var(--blue);
-  box-shadow: 0 14px 34px -20px rgba(4, 30, 66, 0.5);
-  backdrop-filter: blur(12px);
+.hero-art-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
-.hero-art-callout strong {
+.hero-feature-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hero-feature {
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: #FFFFFF;
+  border: 1px solid rgba(4, 30, 66, 0.08);
+  border-top: 3px solid var(--blue);
+  box-shadow: 0 12px 30px -24px rgba(4, 30, 66, 0.5);
+}
+.hero-feature:last-child { border-top-color: #041E42; }
+.hero-feature strong {
   display: block;
   color: var(--l-text);
-  font-size: 0.75rem;
-  line-height: 1.28;
+  font-size: 0.8125rem;
+  line-height: 1.3;
 }
-.hero-art-callout-top { top: 22px; right: 18px; }
-.hero-art-callout-bottom { left: 18px; bottom: 20px; border-left-color: #041E42; }
-.hero-callout-label {
+.hero-feature-label {
   display: block;
   margin-bottom: 3px;
   color: var(--blue);
@@ -365,7 +375,7 @@ body.modal-open { overflow: hidden; }
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.hero-art-callout-bottom .hero-callout-label { color: #041E42; }
+.hero-feature:last-child .hero-feature-label { color: #041E42; }
 
 .hero-body { max-width: 720px; }
 .hero-kicker-wrap {
@@ -762,7 +772,6 @@ body.modal-open { overflow: hidden; }
 .hero-art-shell .hero-art-backdrop,
 .hero-art-shell .hero-art-rink,
 .hero-art-shell .hero-art { position: relative; z-index: 1; }
-.hero-art-shell .hero-art-callout { z-index: 1; }
 .app-modal {
   position: fixed;
   inset: 0;
@@ -966,13 +975,6 @@ body.modal-open { overflow: hidden; }
     inset: 42px 10px 24px 10px;
     background-size: clamp(170px, 60%, 220px);
   }
-  .hero-art-callout {
-    max-width: 122px;
-    padding: 7px 9px 7px 11px;
-  }
-  .hero-art-callout strong { font-size: 0.7rem; }
-  .hero-art-callout-top { top: 14px; right: 12px; }
-  .hero-art-callout-bottom { left: 12px; bottom: 14px; }
   .hero-kicker-wrap { gap: 8px; margin-bottom: 12px; }
   .hero-kicker { min-height: 30px; padding: 0 11px; font-size: 0.6563rem; }
   h1,

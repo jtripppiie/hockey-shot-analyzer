@@ -19,6 +19,13 @@ import main as M
 logging.disable(logging.CRITICAL)
 
 
+class _FakeUpload:
+    """Minimal stand-in for starlette's UploadFile (only .file is used)."""
+    def __init__(self, data: bytes):
+        import io
+        self.file = io.BytesIO(data)
+
+
 def _redirect(tmp: Path):
     """Point main's storage globals at a temp dir and return originals."""
     up = tmp / "uploads"
@@ -159,6 +166,51 @@ def test_history_cap_noop_when_under_limit():
         _write_history([{"job_id": "a", "filename": "f", "date": "d",
                          "overall": 1}])
         assert M._enforce_history_cap(max_entries=50) == 0
+    finally:
+        _restore(saved)
+        d.cleanup()
+
+
+def test_save_upload_writes_under_cap():
+    d = tempfile.TemporaryDirectory()
+    saved = _redirect(Path(d.name))
+    try:
+        dest = M.UPLOAD_DIR / "small.mp4"
+        n = M._save_upload(_FakeUpload(b"x" * 1000), dest, max_bytes=10000)
+        assert n == 1000
+        assert dest.exists() and dest.stat().st_size == 1000
+    finally:
+        _restore(saved)
+        d.cleanup()
+
+
+def test_save_upload_rejects_and_cleans_partial_over_cap():
+    d = tempfile.TemporaryDirectory()
+    saved = _redirect(Path(d.name))
+    try:
+        dest = M.UPLOAD_DIR / "big.mp4"
+        raised = False
+        try:
+            M._save_upload(_FakeUpload(b"x" * 5_000_000), dest, max_bytes=1_000_000)
+        except M.HTTPException as e:
+            raised = True
+            assert e.status_code == 413
+            assert e.detail == "file_too_large"
+        assert raised
+        assert not dest.exists()           # partial file removed
+    finally:
+        _restore(saved)
+        d.cleanup()
+
+
+def test_save_upload_cap_disabled_allows_any_size():
+    d = tempfile.TemporaryDirectory()
+    saved = _redirect(Path(d.name))
+    try:
+        dest = M.UPLOAD_DIR / "any.mp4"
+        n = M._save_upload(_FakeUpload(b"y" * 3_000_000), dest, max_bytes=0)
+        assert n == 3_000_000
+        assert dest.exists()
     finally:
         _restore(saved)
         d.cleanup()

@@ -51,6 +51,12 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 UPLOAD_MAX_AGE_S = int(os.environ.get("UPLOAD_MAX_AGE_S", "3600"))
 HISTORY_MAX_ENTRIES = int(os.environ.get("HISTORY_MAX_ENTRIES", "0"))
 
+# Reject pathological uploads before they exhaust disk/memory. The duration
+# guard in _analyze_video only fires after a full upload + pose run, so we cap
+# bytes up front. Generous default (a 60s phone clip is well under this); set
+# MAX_UPLOAD_BYTES=0 to disable.
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))
+
 app = FastAPI(title="Hockey Shot Analyzer")
 
 app.add_middleware(
@@ -59,6 +65,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _limit_upload_size(request, call_next):
+    """Early-reject oversized POST bodies by Content-Length so a multi-GB upload
+    never gets spooled to disk. _save_upload is the backstop when the header is
+    absent or lies. Disabled when MAX_UPLOAD_BYTES <= 0."""
+    if request.method == "POST" and MAX_UPLOAD_BYTES > 0:
+        cl = request.headers.get("content-length")
+        if cl is not None:
+            try:
+                if int(cl) > MAX_UPLOAD_BYTES:
+                    return JSONResponse(status_code=413,
+                                        content={"detail": "file_too_large"})
+            except ValueError:
+                pass
+    return await call_next(request)
 
 
 @app.exception_handler(Exception)
@@ -95,8 +118,7 @@ async def analyze(file: UploadFile = File(...), hand_override: str = Form("")):
     upload_path = UPLOAD_DIR / f"{job_id}{suffix}"
 
     # Save upload
-    with open(upload_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    _save_upload(file, upload_path)
 
     try:
         return _analyze_video(str(upload_path), file.filename, job_id,
@@ -685,6 +707,35 @@ def clear_error_log():
 
 
 # ── Multi-attempt segmenting ─────────────────────────────────────────────────
+def _save_upload(file: UploadFile, dest: Path, max_bytes: int = None) -> int:
+    """Stream an UploadFile to dest in chunks, enforcing a byte cap. If the
+    upload exceeds max_bytes, the partial file is removed and HTTP 413
+    (file_too_large) is raised. Returns bytes written. This is the backstop for
+    the Content-Length middleware (covers chunked/absent-length uploads)."""
+    if max_bytes is None:
+        max_bytes = MAX_UPLOAD_BYTES
+    written = 0
+    chunk_size = 1024 * 1024
+    too_large = False
+    with open(dest, "wb") as out:
+        while True:
+            buf = file.file.read(chunk_size)
+            if not buf:
+                break
+            written += len(buf)
+            if max_bytes > 0 and written > max_bytes:
+                too_large = True
+                break
+            out.write(buf)
+    if too_large:
+        try:
+            dest.unlink()
+        except OSError:
+            pass
+        raise HTTPException(413, "file_too_large")
+    return written
+
+
 def _sweep_old_uploads(max_age_s: int = None) -> int:
     """Best-effort cleanup of stale files in uploads/.
 
@@ -789,8 +840,7 @@ async def suggest_segments_route(file: UploadFile = File(...)):
     _sweep_old_uploads()
     seg_job = uuid.uuid4().hex[:10]
     src = UPLOAD_DIR / f"{seg_job}_multi{suffix}"
-    with open(src, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    _save_upload(file, src)
 
     try:
         meta = get_video_meta(str(src))

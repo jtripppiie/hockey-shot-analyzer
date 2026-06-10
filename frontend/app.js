@@ -48,6 +48,7 @@ const ERROR_MESSAGES = {
   video_too_short:  { icon: "⏱️", title: "Clip too short", body: "The video needs to be at least a few seconds long. Record the full shot — setup, release and follow-through." },
   video_too_long:   { icon: "📏", title: "Clip too long", body: "Keep the clip to 5–10 seconds — one shot only. Trim it down and try again." },
   video_unreadable: { icon: "📂", title: "Can't read this file", body: "The video file appears to be corrupted or in an unsupported format. Try exporting it as MP4 and uploading again." },
+  file_too_large:   { icon: "💾", title: "File too large", body: "That video is too big to upload. Trim it to a single 5–10 second shot and export at 1080p or lower, then try again." },
   no_body_detected: { icon: "👀", title: "Couldn't find a player", body: "The AI couldn't see anyone in this clip. Check that:\n• The player fills most of the frame\n• Lighting is bright and even\n• The camera is at a side angle (not front-on)\n• There's no one else crossing the frame" },
   poor_detection:   { icon: "⚠️", title: "Hard to see the player", body: "The AI could only track the player in part of the clip. For better results:\n• Use brighter lighting\n• Film from the side (15–45°)\n• Make sure the full body is in frame the whole time\n• Avoid busy backgrounds" },
   metrics_failed:   { icon: "🔢", title: "Couldn't calculate scores", body: "Landmarks were found but angles couldn't be computed. Make sure the full body (head to ankles) is visible throughout the shot." },

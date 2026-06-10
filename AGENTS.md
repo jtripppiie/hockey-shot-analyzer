@@ -223,9 +223,28 @@ only large local asset (gitignored).
    Sport-agnostic, mirrored verbatim in the pole repo. Regression tests in
    `backend/test_cleanup.py` (`python test_cleanup.py`).
 
+17. **Upload size cap (DoS guard)** — `/analyze` and `/suggest-segments` used to
+   stream the whole upload to disk with `shutil.copyfileobj` and *no* size
+   limit; the duration guard in `_analyze_video` only fires *after* a full
+   upload + pose run, so a multi-GB file could exhaust disk/memory first. Two
+   layers now cap it, both keyed off `MAX_UPLOAD_BYTES` (env, default 500 MB; a
+   60s phone clip is well under this; set `0` to disable): (a) an
+   `@app.middleware("http")` (`_limit_upload_size`) early-rejects any POST whose
+   `Content-Length` exceeds the cap with `413 {"detail":"file_too_large"}`,
+   before the body is spooled; (b) `_save_upload(file, dest, max_bytes=None)`
+   streams the upload in 1 MB chunks and is the **backstop** when the header is
+   absent or lies — on overflow it deletes the partial file and raises
+   `HTTPException(413, "file_too_large")`. Both `/analyze` and
+   `/suggest-segments` now call `_save_upload` instead of `shutil.copyfileobj`.
+   The frontend maps `file_too_large` via `ERROR_MESSAGES`. **Default 500 MB is
+   deliberately generous** so legit 1080p/4K clips aren't rejected — the goal is
+   to stop pathological uploads, not to be strict. Sport-agnostic, mirrored
+   verbatim in the pole repo. Regression tests: `test_save_upload_*` in
+   `backend/test_cleanup.py`.
+
 | Path | Purpose |
 |------|---------|
-| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
+| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_save_upload` / `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `_limit_upload_size` middleware; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
 | `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS`; `APP_VERSION` |
 | `backend/errors.py` | Centralized append-only error log (`output/error_log.jsonl`); `log_error`, `recent_errors`; field caps + `_safe_context` |
 | `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
@@ -233,7 +252,7 @@ only large local asset (gitignored).
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
 | `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip + `scene_cut_precheck` (needs ffmpeg; `python test_segment.py`) |
-| `backend/test_cleanup.py` | Self-contained tests for storage retention: `_sweep_old_uploads`, `_enforce_history_cap`, `_delete_job_artifacts` (`python test_cleanup.py`) |
+| `backend/test_cleanup.py` | Self-contained tests for storage retention: `_sweep_old_uploads`, `_enforce_history_cap`, `_delete_job_artifacts`, plus the `_save_upload` size cap (`python test_cleanup.py`) |
 | `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
 | `backend/fixtures/*.landmarks.json.gz` | Git-tracked gzipped landmark fixtures (real YouTube clips, pose pre-run) backing `test_real_clips.py` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |

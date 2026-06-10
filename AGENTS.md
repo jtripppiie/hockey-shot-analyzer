@@ -199,9 +199,33 @@ only large local asset (gitignored).
    the pole repo. Regression tests: `test_precheck_flags_montage_cut` /
    `test_precheck_ignores_continuous_motion` in `test_segment.py`.
 
+16. **Bounded disk: stale-upload sweep + opt-in history cap** — `output/` and
+   `uploads/` grew without bound (every analyzed clip leaves an overlay video,
+   the bulk of disk use). Two retention helpers in `backend/main.py`:
+   (a) `_sweep_old_uploads(max_age_s=UPLOAD_MAX_AGE_S)` deletes any file in
+   `uploads/` older than `UPLOAD_MAX_AGE_S` (env, default 3600s). Uploads are
+   transient — `/analyze`'s `finally` deletes each one, the render thread
+   removes its `_render.mp4` copy, multi-rep sources are short-lived — so
+   anything older than an hour is a crash orphan (a live request's files are
+   seconds old, never racing the sweep). This **generalizes the old
+   `_sweep_old_multi`** (which only caught `*_multi.*`); the `/suggest-segments`
+   call site now calls `_sweep_old_uploads()`. (b) `_enforce_history_cap(
+   max_entries=HISTORY_MAX_ENTRIES)` keeps only the newest N history rows and
+   deletes the pruned jobs' output artifacts via the new `_delete_job_artifacts(
+   job_id)` (sanitized-id glob `{job}_*`, which also catches `_capture_*.jpg`
+   frames the old delete route missed). **Off by default** (`HISTORY_MAX_ENTRIES`
+   <= 0 → unlimited, no behavior change for existing deployments), mirroring the
+   `ERROR_LOG_MAX_LINES` opt-in pattern. Both run once at boot via an
+   `@app.on_event("startup")` hook (`_startup_cleanup`, info-logs swept count to
+   Diagnostics); the cap also runs after each `_append_history`. Session reports
+   already tolerate missing job files (`if jf.exists()`), so pruning is safe.
+   `DELETE /history/{job_id}` now also routes through `_delete_job_artifacts`.
+   Sport-agnostic, mirrored verbatim in the pole repo. Regression tests in
+   `backend/test_cleanup.py` (`python test_cleanup.py`).
+
 | Path | Purpose |
 |------|---------|
-| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_multi` helpers; global `@app.exception_handler(Exception)` |
+| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
 | `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS`; `APP_VERSION` |
 | `backend/errors.py` | Centralized append-only error log (`output/error_log.jsonl`); `log_error`, `recent_errors`; field caps + `_safe_context` |
 | `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
@@ -209,6 +233,7 @@ only large local asset (gitignored).
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
 | `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip + `scene_cut_precheck` (needs ffmpeg; `python test_segment.py`) |
+| `backend/test_cleanup.py` | Self-contained tests for storage retention: `_sweep_old_uploads`, `_enforce_history_cap`, `_delete_job_artifacts` (`python test_cleanup.py`) |
 | `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
 | `backend/fixtures/*.landmarks.json.gz` | Git-tracked gzipped landmark fixtures (real YouTube clips, pose pre-run) backing `test_real_clips.py` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |

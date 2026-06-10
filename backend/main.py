@@ -45,6 +45,12 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# Storage retention. Uploads are transient and always swept; output history is
+# unlimited by default (set HISTORY_MAX_ENTRIES > 0 to cap it, like
+# ERROR_LOG_MAX_LINES). Both are read from the environment at boot.
+UPLOAD_MAX_AGE_S = int(os.environ.get("UPLOAD_MAX_AGE_S", "3600"))
+HISTORY_MAX_ENTRIES = int(os.environ.get("HISTORY_MAX_ENTRIES", "0"))
+
 app = FastAPI(title="Hockey Shot Analyzer")
 
 app.add_middleware(
@@ -211,6 +217,7 @@ def _analyze_video(video_path: str, display_name: str, job_id: str,
         # Return scores immediately — render overlay in background thread
         try:
             _append_history(display_name, result, job_id)
+            _enforce_history_cap()
         except Exception as e:
             log_error("append_history", e, context={"job_id": job_id})
         try:
@@ -362,10 +369,7 @@ def get_history_item(job_id: str):
 @app.delete("/history/{job_id}")
 def delete_history_item(job_id: str):
     # Remove output files
-    for suffix in ("_overlay.mp4", "_frame.jpg", "_result.json", "_landmarks.json"):
-        p = OUTPUT_DIR / f"{job_id}{suffix}"
-        if p.exists():
-            p.unlink()
+    _delete_job_artifacts(job_id)
     # Remove from CSV
     _remove_from_csv(job_id)
     return {"deleted": job_id}
@@ -681,15 +685,95 @@ def clear_error_log():
 
 
 # ── Multi-attempt segmenting ─────────────────────────────────────────────────
-def _sweep_old_multi(max_age_s: int = 3600) -> None:
-    """Best-effort cleanup of cached multi-rep sources older than max_age_s."""
+def _sweep_old_uploads(max_age_s: int = None) -> int:
+    """Best-effort cleanup of stale files in uploads/.
+
+    Uploads are transient: every analyze path deletes its upload as soon as the
+    request finishes (see /analyze's `finally`), background render copies are
+    removed by the render thread, and cached multi-rep sources are short-lived.
+    Anything left in uploads/ older than max_age_s is therefore an orphan from a
+    crashed or interrupted request, so we remove it. A live request's files are
+    seconds old, never an hour, so this can't race an in-flight analysis.
+    Returns the number of files removed. Never raises.
+    """
+    if max_age_s is None:
+        max_age_s = UPLOAD_MAX_AGE_S
     now = time.time()
-    for p in UPLOAD_DIR.glob("*_multi.*"):
+    removed = 0
+    try:
+        entries = list(UPLOAD_DIR.iterdir())
+    except OSError:
+        return 0
+    for p in entries:
         try:
-            if now - p.stat().st_mtime > max_age_s:
+            if p.is_file() and now - p.stat().st_mtime > max_age_s:
+                p.unlink()
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+def _delete_job_artifacts(job_id: str) -> None:
+    """Remove every output file belonging to one job (overlay, frame, result,
+    landmarks, captured frames). job_id is sanitized; never raises."""
+    safe = re.sub(r"[^a-zA-Z0-9_-]", "", job_id)[:32]
+    if not safe:
+        return
+    for p in OUTPUT_DIR.glob(f"{safe}_*"):
+        try:
+            if p.is_file():
                 p.unlink()
         except OSError:
             pass
+
+
+def _enforce_history_cap(max_entries: int = None) -> int:
+    """Opt-in retention: keep only the newest `max_entries` history rows and
+    delete the output artifacts of any job pruned out (overlay videos are the
+    bulk of disk use). Off by default (HISTORY_MAX_ENTRIES <= 0) so existing
+    deployments keep unlimited history; set HISTORY_MAX_ENTRIES to bound disk
+    growth, mirroring ERROR_LOG_MAX_LINES. Returns rows removed. Never raises."""
+    if max_entries is None:
+        max_entries = HISTORY_MAX_ENTRIES
+    if max_entries <= 0 or not HISTORY_CSV.exists():
+        return 0
+    try:
+        with open(HISTORY_CSV, newline="") as f:
+            rows = list(csv.DictReader(f))
+    except OSError:
+        return 0
+    if len(rows) <= max_entries:
+        return 0
+    keep = rows[-max_entries:]          # newest rows are appended last
+    drop = rows[:-max_entries]
+    for r in drop:
+        jid = r.get("job_id")
+        if jid:
+            _delete_job_artifacts(jid)
+    try:
+        fieldnames = list(rows[0].keys())
+        with open(HISTORY_CSV, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(keep)
+    except OSError:
+        pass
+    return len(drop)
+
+
+@app.on_event("startup")
+def _startup_cleanup() -> None:
+    """Sweep stale uploads (and apply any history cap) once at boot."""
+    try:
+        n = _sweep_old_uploads()
+        if n:
+            log_error("startup:swept_uploads", severity="info",
+                      message=f"removed {n} stale upload file(s) at startup",
+                      context={"removed": n})
+        _enforce_history_cap()
+    except Exception as e:  # never block startup on cleanup
+        log_error("startup_cleanup", e)
 
 
 @app.post("/suggest-segments")
@@ -702,7 +786,7 @@ async def suggest_segments_route(file: UploadFile = File(...)):
     if suffix not in allowed:
         raise HTTPException(400, f"Unsupported file type: {suffix}")
 
-    _sweep_old_multi()
+    _sweep_old_uploads()
     seg_job = uuid.uuid4().hex[:10]
     src = UPLOAD_DIR / f"{seg_job}_multi{suffix}"
     with open(src, "wb") as f:

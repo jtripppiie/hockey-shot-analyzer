@@ -2,6 +2,8 @@
 
 Upload a video of one of your hockey shots. The app draws a stick-figure skeleton over you and gives you a score (0–100) for power, technique, and timing — plus tips and drills to get better. **Built so a twelve-year-old can run it on their own laptop, change stuff, and share their version on GitHub.**
 
+> 🥅 **New to coding? Start here:** jump straight to **[The Young Coder's Playbook](#-the-young-coders-playbook)** at the bottom — it explains *everything* (installing VS Code, every git command, undoing mistakes, changing colors and icons, how the scoring math works, adding your own features, and putting it on the internet) one slow shift at a time, with hockey analogies. You don't need to know anything yet. 🏒
+
 ---
 
 ## What you need before you start
@@ -112,9 +114,6 @@ modal; on mobile it behaves like a full-screen settings page. The panel is
 local-only and stores accent color plus an optional shooting-hand override. The
 override defaults to auto-detect and does not affect scoring yet; it is saved
 locally for the next implementation slice.
-
-On first launch, the app asks once whether you want to customize it. **Customize**
-opens these settings; **Skip** dismisses the prompt and does not show it again.
 
 Everything is optional. Skip the profile entirely and the analyzer behaves as
 before. Click **Clear** in the profile panel to wipe the saved values, or
@@ -588,3 +587,591 @@ or a week of reps. Each session is stored as `output/session_*.json`.
 ## For AI coding agents (Copilot, Claude, etc.)
 
 If you're an AI assistant being asked to extend this repo, read [AGENTS.md](AGENTS.md) **first**. It's a short fast-start brief covering the port, the live Cloudflare tunnel, the architectural decisions that should not be casually undone (one JSONL log with a `type` discriminator, desktop-only Expert Mode dual guard, browser-side frame capture, HTML-not-PDF reports), the path-traversal guard on `/capture-frame`, and the gotchas (don't `pkill -f uvicorn` — it kills the sibling vault server too).
+
+---
+
+# 🥅 The Young Coder's Playbook
+
+> **Hey! This part is for you.** 👋 If you've never written code before, that's
+> totally fine — everybody starts at center ice not knowing how to skate. This
+> playbook walks you through *everything*, one slow shift at a time. Read the
+> parts you need, skip the parts you don't, and come back when you're stuck.
+> Nobody learns a slapshot on the first try. You've got this. 🏒
+
+**Jump to a drill:**
+
+1. [Set up VS Code (your locker room)](#1-set-up-vs-code-your-locker-room)
+2. [The 9 git commands you'll actually use](#2-the-9-git-commands-youll-actually-use)
+3. [Branches: practice rinks where you can't break anything](#3-branches-practice-rinks-where-you-cant-break-anything)
+4. [OOPS! How to undo any mistake](#4-oops-how-to-undo-any-mistake)
+5. [Pull, merge, and rebase (getting other people's changes)](#5-pull-merge-and-rebase-getting-other-peoples-changes)
+6. [Fixing a merge conflict (two people, one line)](#6-fixing-a-merge-conflict-two-people-one-line)
+7. [Shortcuts that make you fast](#7-shortcuts-that-make-you-fast)
+8. [How the scoring actually works (the secret math)](#8-how-the-scoring-actually-works-the-secret-math)
+9. [Change the colors](#9-change-the-colors)
+10. [Change the icons](#10-change-the-icons)
+11. [Add a brand-new feature (full walkthrough)](#11-add-a-brand-new-feature-full-walkthrough)
+12. [Put it on the internet with Google Cloud](#12-put-it-on-the-internet-with-google-cloud)
+13. [Set up a robot helper (GitHub Actions)](#13-set-up-a-robot-helper-github-actions)
+14. [Ask the AI for help (good prompts to copy)](#14-ask-the-ai-for-help-good-prompts-to-copy)
+15. [The "I'm totally stuck" checklist](#15-the-im-totally-stuck-checklist)
+
+---
+
+## 1. Set up VS Code (your locker room)
+
+**VS Code** is the program where you'll read and change the code. Think of it as
+your locker room: all your gear in one place.
+
+1. Download it free from **https://code.visualstudio.com** and install it.
+2. Open your project in it. In your terminal, inside the project folder, type:
+   ```bash
+   code .
+   ```
+   That little `.` means "this folder." VS Code pops open with all the files on
+   the left. (On Windows, run this inside your **Ubuntu** window.)
+
+### The extensions to install
+
+Extensions are like upgrades for your skates. Click the **squares icon** on the
+far left (Extensions), search for each of these, and click **Install**:
+
+| Extension | What it does for you |
+|---|---|
+| **Python** (Microsoft) | Understands the `.py` files, runs them, shows red squiggles when something's wrong |
+| **Pylance** (Microsoft) | Auto-complete for Python — it finishes your sentences |
+| **GitHub Copilot** | The AI helper. Type a comment like `# add a new tip` and it suggests the code |
+| **Live Preview** (Microsoft) | Shows your web page changes instantly |
+| **GitLens** | Makes the git history easy to see — who changed what, when |
+
+> **Pro move:** press `Ctrl+\`` (the key above Tab) to open a terminal *inside*
+> VS Code. Now you never have to leave the locker room.
+
+---
+
+## 2. The 9 git commands you'll actually use
+
+**git** is a time machine for your code. It remembers every version, so you can
+always go back. Here are the only commands you need at first:
+
+```bash
+git status                 # What did I change? (check this ALL the time)
+git add .                  # Put my changes on the bench, ready to save
+git commit -m "message"    # Save a checkpoint with a note about what you did
+git push                   # Upload your checkpoints to GitHub
+git pull                   # Download the newest version from GitHub
+git log --oneline          # See your list of saved checkpoints
+git checkout -b name       # Start a new practice rink (branch)
+git checkout main          # Go back to the main rink
+git restore filename       # Undo changes to a file (see drill #4)
+```
+
+**The rhythm of coding** is just three steps, over and over, like a line change:
+
+```bash
+# 1. Make a change in VS Code, save it (Ctrl+S)
+git add .
+git commit -m "made the title say Lightning"
+git push
+```
+
+That's it. Change → `add` → `commit` → `push`. Forward, pass, shoot. 🏒
+
+> **What's a good commit message?** Say *what you did* in a few words:
+> `"changed buttons to green"`, `"new tip for follow-through"`,
+> `"fixed the typo on the home page"`. Future-you will thank you.
+
+---
+
+## 3. Branches: practice rinks where you can't break anything
+
+A **branch** is a copy of the project where you can try wild ideas. If it works,
+you keep it. If it's a disaster, you throw the whole rink away and the *real*
+project never knew. **Always make a branch before a big experiment.**
+
+```bash
+git checkout -b rainbow-buttons     # make + jump to a new branch
+# ...mess around, commit as usual...
+git push -u origin rainbow-buttons  # save the branch to GitHub
+```
+
+Like it? Go to your project on github.com and click the green
+**"Compare & pull request"** button to bring it into `main`.
+
+Hate it? Just leave it and go back to safety:
+
+```bash
+git checkout main                   # back to the real project, untouched
+git branch -D rainbow-buttons       # delete the bad branch (capital -D = "yes, for sure")
+```
+
+The main branch is the game; branches are practice. Never test new plays during
+a real game. 🥅
+
+---
+
+## 4. OOPS! How to undo any mistake
+
+**This is the most important section.** You *cannot* permanently break things
+with git — there's almost always an undo. Find your "oops" below:
+
+| Your "oops" | The fix |
+|---|---|
+| I changed a file and want it back the way it was (didn't commit yet) | `git restore thefile.js` |
+| I changed *lots* of files and want ALL of them back | `git restore .` |
+| I did `git add` but want to un-add (un-bench) it | `git restore --staged thefile.js` |
+| I made a commit but the message is wrong | `git commit --amend -m "better message"` |
+| My last commit was a mistake — undo it but keep my changes | `git reset --soft HEAD~1` |
+| My last commit was a mistake — undo it AND the changes | `git reset --hard HEAD~1` ⚠️ throws away work |
+| I deleted a file by accident | `git restore thefile.js` (if not committed) |
+| I want to go back to exactly how GitHub has it | `git fetch origin && git reset --hard origin/main` ⚠️ |
+| **I REALLY messed up and don't know what happened** | `git reflog` — see below ⤵️ |
+
+### The magic rewind: `git reflog`
+
+`git reflog` is git's *security camera*. It records every single move you made,
+even the ones you thought you erased. Run it:
+
+```bash
+git reflog
+```
+
+You'll see a list like:
+
+```
+a1b2c3d HEAD@{0}: reset: moving to HEAD~1
+e4f5g6h HEAD@{1}: commit: the work I thought I lost
+```
+
+See that `e4f5g6h`? That's the checkpoint you panicked about. Bring it back:
+
+```bash
+git checkout e4f5g6h
+```
+
+**Nothing is ever truly gone.** Breathe. The camera saw it. 📹
+
+> ⚠️ The commands marked ⚠️ throw away changes you haven't pushed. When in
+> doubt, **commit first** (`git add . && git commit -m "wip"`) — a saved
+> checkpoint can always be recovered, but unsaved changes can't.
+
+---
+
+## 5. Pull, merge, and rebase (getting other people's changes)
+
+When the original project gets cool new features and you want them, you "pull"
+them in. There are two styles. Here's the difference, in hockey terms:
+
+### `git pull` / merge — taping two highlight reels together
+
+```bash
+git pull origin main
+```
+
+This grabs the new stuff and **merges** it with yours. It makes a little
+"merge commit" — like splicing two video clips together with a transition. Your
+history shows both reels joining up. **This is the safe default. Use it.**
+
+Getting updates from the *original* project you forked from:
+
+```bash
+# Tell git where the original lives — only ONCE, ever:
+git remote add upstream https://github.com/jtripppiie/hockey-shot-analyzer.git
+
+# Then any time you want their updates:
+git fetch upstream
+git merge upstream/main
+git push
+```
+
+### `git rebase` — re-recording your plays on top of the new game tape
+
+```bash
+git pull --rebase origin main
+```
+
+Rebase takes *your* commits, sets them aside, grabs everybody else's new
+commits, and then **re-plays yours on top** — so your history looks like one
+clean straight line instead of a Y-shaped merge. It's tidier, but trickier.
+
+**Which should you use?**
+- 🟢 **Learning / just want it to work:** use `git pull` (merge). Always fine.
+- 🔵 **Want a clean, straight history and you're comfortable:** `git pull --rebase`.
+
+> **Golden rule of rebase:** only rebase commits you *haven't pushed yet*.
+> Rebasing stuff other people already have is like changing a game's score
+> after everyone went home — it confuses everybody. When unsure, merge.
+
+If a rebase gets scary and you want out, this always works:
+
+```bash
+git rebase --abort     # forget the whole thing, nothing changed
+```
+
+---
+
+## 6. Fixing a merge conflict (two people, one line)
+
+A **conflict** happens when you AND someone else changed *the exact same line*.
+Git can't guess who's right, so it asks you. Don't panic — this is normal.
+
+Git marks the spot in the file like this:
+
+```
+<<<<<<< HEAD
+  <h1>My Awesome Title</h1>
+=======
+  <h1>The Original Title</h1>
+>>>>>>> upstream/main
+```
+
+Read it like this:
+- Between `<<<<<<<` and `=======` is **your** version.
+- Between `=======` and `>>>>>>>` is **their** version.
+
+**To fix it:** decide which one you want (or combine them), then **delete all
+three marker lines** (`<<<<<<<`, `=======`, `>>>>>>>`) so only the line you want
+is left. For example, keep yours:
+
+```
+  <h1>My Awesome Title</h1>
+```
+
+Then save the file and finish up:
+
+```bash
+git add .
+git commit -m "fixed the conflict, kept my title"
+git push
+```
+
+> VS Code makes this even easier: it highlights conflicts and shows buttons —
+> **Accept Current Change**, **Accept Incoming Change**, **Accept Both**. Click
+> the one you want and it cleans up the markers for you. 🎯
+
+---
+
+## 7. Shortcuts that make you fast
+
+### Git nicknames (aliases)
+
+Tired of typing `git checkout`? Teach git short nicknames — do this once:
+
+```bash
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.st status
+git config --global alias.cm "commit -m"
+git config --global alias.lg "log --oneline --graph --all"
+```
+
+Now `git st` means `git status`, and `git cm "my note"` saves a checkpoint.
+`git lg` draws a cool map of all your branches.
+
+### VS Code shortcuts
+
+| Keys | What it does |
+|---|---|
+| `Ctrl+S` | Save the file (do this constantly) |
+| `Ctrl+Z` | Undo your last typing |
+| `Ctrl+\`` | Open/close the terminal |
+| `Ctrl+F` | Find a word in this file |
+| `Ctrl+Shift+F` | Find a word in **every** file |
+| `Ctrl+P` | Jump to any file by typing its name |
+| `Ctrl+/` | Comment out the line (turn it off without deleting) |
+
+> You don't have to memorize these. Pick two, use them till they're automatic,
+> then learn two more. That's how pros build muscle memory.
+
+---
+
+## 8. How the scoring actually works (the secret math)
+
+Ever wonder how the app turns a video into a number? No magic — just five steps.
+Here's the whole play, start to finish:
+
+**Step 1 — Find the body.** Google's "MediaPipe" model looks at every frame and
+drops 33 dots on your body: shoulders, elbows, wrists, hips, knees, ankles. Like
+a connect-the-dots that follows you around. (`backend/pose.py`)
+
+**Step 2 — Measure angles, not pictures.** The app connects three dots to measure
+a *joint angle* — for example hip → knee → ankle tells it how bent your knee is.
+It uses the model's "3D world" dots so the score doesn't get fooled if your
+camera is a little off to the side. (`backend/metrics.py`, `angle_3pts_3d`)
+
+**Step 3 — Score each measurement 0–100 with a "good zone."** Every measurement
+has an *ideal range*. Inside the range = 100 points. Outside it, the score slides
+down toward 0. Here's the actual rule for knee bend, in plain English:
+
+```python
+# from backend/metrics.py
+score = _score_band(val, 0.15, 0.40, 0.0, 0.7)
+#                         ↑     ↑    ↑    ↑
+#                    ideal_lo  │  hard_lo │
+#                          ideal_hi    hard_hi
+```
+
+That says: "A knee bend between **0.15 and 0.40** is perfect (100). Less than 0
+or more than 0.7 is as bad as it gets (0). In between, slide the score." A
+straight, stiff leg scores low; a deep, loaded leg scores high. 🦵
+
+**Step 4 — Turn scores into letter grades.** Each number becomes a word so it's
+friendly:
+
+```python
+if score >= 85:  "great"
+if score >= 70:  "good"
+if score >= 50:  "ok"
+else:            "needs work"
+```
+
+**Step 5 — Mix them into the three big scores.** Power, Technique, and Timing are
+each a *weighted blend* — some ingredients matter more, like a recipe:
+
+```python
+power     = hip_rotation×0.35 + shoulder_rotation×0.25 + weight_transfer×0.25 + knee_bend×0.15
+technique = knee_bend×0.30 + follow_through×0.35 + head_stability×0.35
+timing    = release_timing×0.65 + follow_through×0.35
+```
+
+And the **Overall Shot Score** blends those three:
+
+```python
+overall = power×0.40 + technique×0.35 + timing×0.25
+```
+
+So Power counts the most (40%), then Technique (35%), then Timing (25%).
+
+**Want to change how it scores?** Open `backend/metrics.py`. Change a weight
+(make `timing` count more!), widen a "good zone," or rewrite a coaching tip in
+your own words. Save, restart `./run.sh`, and analyze a clip to see your new
+rules in action. **This file is the brain of the whole app** — and now you know
+how it thinks. 🧠
+
+---
+
+## 9. Change the colors
+
+All the colors live in one spot at the very top of
+[`frontend/style.css`](frontend/style.css), inside a block called `:root`. They
+have nicknames called *variables* (the things starting with `--`). Change a
+nickname once and it updates everywhere it's used — like changing your whole
+team's jersey color with one switch.
+
+```css
+:root {
+  --blue:    #C8102E;   /* the main accent — buttons, highlights (this is Capitals red) */
+  --d-bg:     #020D1C;   /* the dark background on the upload screen */
+  --d-surface:#041E42;   /* the navy cards */
+  --green:   #16A34A;   /* the "great score" color */
+}
+```
+
+Those `#C8102E` things are **hex color codes**. Want to find your own? Go to
+[Google's color picker](https://www.google.com/search?q=color+picker), pick a
+color, and copy its hex code (it looks like `#FF6600`). Paste it in, save, and
+refresh the browser.
+
+> **Try this:** change `--blue` to `#6D28D9` (purple) and watch every button turn
+> purple at once. That's the power of variables. 💜
+
+---
+
+## 10. Change the icons
+
+The little pictures (⚙ gear, 📸 camera, ✕ close) are just **emoji typed right
+into the HTML**. To change one, open
+[`frontend/index.html`](frontend/index.html), find the emoji, and replace it
+with a different one.
+
+For example, the settings gear is here:
+
+```html
+<button id="settingsBtn" class="icon-btn" ...>⚙</button>
+```
+
+Change that `⚙` to `🛠️` or `🎛️` and save. Done! (On Mac press
+`Ctrl+Cmd+Space` for the emoji picker; on Windows press `Windows + .`)
+
+The big "upload" arrow is a drawing called an **SVG** (also in `index.html`).
+That one's trickier to change — leave it for later, or ask the AI to help (see
+drill #14).
+
+---
+
+## 11. Add a brand-new feature (full walkthrough)
+
+Let's add a real feature together: **a button that picks a random hockey fact.**
+This touches all three layers, so you'll learn how the app fits together.
+
+**First, make a branch** (drill #3) so you can't break anything:
+
+```bash
+git checkout -b random-fact-button
+```
+
+**Step A — Add the button** in `frontend/index.html`. Find the results area and
+drop this in somewhere visible:
+
+```html
+<button onclick="showHockeyFact()" class="btn-ghost">🏒 Random hockey fact</button>
+<p id="factText"></p>
+```
+
+**Step B — Make it do something** in `frontend/app.js`. Add this function at the
+bottom:
+
+```javascript
+function showHockeyFact() {
+  const facts = [
+    "A hockey puck is frozen before games so it doesn't bounce.",
+    "The fastest slapshot ever recorded was over 108 mph!",
+    "Pucks are made of vulcanized rubber.",
+  ];
+  const pick = facts[Math.floor(Math.random() * facts.length)];
+  document.getElementById("factText").textContent = pick;
+}
+```
+
+**Step C — Try it.** Restart the server (`Ctrl+C`, then `./run.sh`), refresh the
+browser, and click your button. A random fact appears! 🎉
+
+**Step D — Save your win:**
+
+```bash
+git add .
+git commit -m "added a random hockey fact button"
+git push -u origin random-fact-button
+```
+
+That's the whole loop of building a feature: **HTML** (what you see) → **app.js**
+(what it does) → test → commit. Every feature, big or small, is just this same
+shift repeated. Now try changing the facts to your own! 
+
+> Want a feature that needs *math or video* (like a new score)? That lives in the
+> **backend** Python files (`backend/metrics.py`). Same idea, different rink —
+> ask the AI to walk you through it (drill #14).
+
+---
+
+## 12. Put it on the internet with Google Cloud
+
+Want a real, always-on web address (not just the temporary `./share.sh` link) so
+anyone can use your app? **Google Cloud Run** can host it. This part needs a
+grown-up's help (it asks for a credit card, though it's free for small use).
+
+This repo already includes a [`Dockerfile`](Dockerfile) — a recipe that packs
+the whole app into a box Google can run. Here's the play:
+
+1. **Install the Google Cloud tool** (`gcloud`): follow
+   https://cloud.google.com/sdk/docs/install
+2. **Log in and pick a project:**
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR-PROJECT-ID
+   ```
+3. **Ship it** — this one command builds the box and puts it online:
+   ```bash
+   gcloud run deploy hockey-shot-analyzer \
+     --source . \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --memory 2Gi
+   ```
+4. When it finishes, it prints a `https://...run.app` web address. **That's your
+   app, live on the internet.** Share it! 🌎
+
+> **Why `--memory 2Gi`?** The pose-detection AI needs room to think. With less
+> memory it can run out and crash on bigger videos.
+>
+> **Heads up:** files saved on Cloud Run (analyzed clips, history) disappear when
+> it restarts — that's normal for this kind of hosting. The analyzer still works
+> perfectly; it just doesn't keep a permanent history in the cloud. That's a
+> great "next feature" to learn about later (it's called a database). 💾
+
+---
+
+## 13. Set up a robot helper (GitHub Actions)
+
+A **GitHub Action** is a robot that runs every time you push code. We've set one
+up that runs all the app's tests automatically — so if you ever break something,
+GitHub tells you with a red ❌ instead of you finding out the hard way.
+
+It's already in the repo at
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml). You don't have to
+do anything — it just works. Here's what happens:
+
+1. You `git push` your code.
+2. GitHub spins up a fresh computer, installs the app, and runs every test.
+3. On your repo's **Actions** tab (top of the GitHub page) you'll see a ✅
+   (everything passed) or ❌ (something broke — click it to see what).
+
+Think of it as a goalie that checks every shot you take *before* it counts. If
+the robot is happy, your code is healthy. 🥅
+
+> Want to see it run? Make any tiny change, push it, then watch the **Actions**
+> tab on github.com light up. It's strangely satisfying.
+
+---
+
+## 14. Ask the AI for help (good prompts to copy)
+
+You have **GitHub Copilot** in VS Code (drill #1). It's like having a coach on
+the bench. The secret to getting good help is **asking clearly**. Here are
+copy-paste prompts that work great — open Copilot Chat and try them:
+
+**When you don't understand some code:**
+> "Explain what the `compute_metrics` function in `backend/metrics.py` does, like
+> I'm 10 years old."
+
+**When you want to build something:**
+> "I want to add a button on the results page that shows the date the video was
+> analyzed. Walk me through every file I need to change, step by step."
+
+**When you see a scary red error:**
+> "I got this error when I ran the app: [paste the whole error here]. What does it
+> mean and how do I fix it?"
+
+**When you want to change how it looks:**
+> "In `frontend/style.css`, how do I make all the buttons have rounded corners and
+> a drop shadow? Show me exactly what to change."
+
+**When git confuses you:**
+> "I ran `git rebase` and now I'm confused and scared. How do I safely get back to
+> where I was before?"
+
+**Tips for great prompts:**
+- 🎯 **Be specific.** "Make a button" is vague. "Make a green button on the
+  results page that says 'New Shot' and reloads the page" gets you real code.
+- 📋 **Paste the whole error**, not just part of it. Errors have clues at the bottom.
+- 🐢 **Ask it to go slow:** add "explain each step" or "like I'm a beginner."
+- ❓ **It's okay to say "I don't understand, try again simpler."** The AI never
+  gets annoyed.
+
+---
+
+## 15. The "I'm totally stuck" checklist
+
+Coding feels frustrating sometimes — *for everyone, even pros*. When you're
+stuck, run down this list before giving up:
+
+1. **Did you save?** Press `Ctrl+S`. (Half of all "it's not working" is an
+   unsaved file.) 💾
+2. **Did you restart the server?** Press `Ctrl+C` in the terminal, then
+   `./run.sh` again.
+3. **Did you refresh the browser?** Press `Ctrl+Shift+R` (a hard refresh that
+   ignores old cached stuff).
+4. **Read the error out loud.** Errors look scary but the *last line* usually
+   says exactly what's wrong in almost-plain English.
+5. **Check the [troubleshooting table](#when-something-goes-wrong)** higher up in
+   this README — your problem might already be there.
+6. **Ask Copilot** — paste the error (drill #14).
+7. **Undo and try again** — `git restore .` puts everything back so you can take a
+   fresh shot (drill #4).
+8. **Take a break.** Seriously. Go shoot some pucks. Half the time the answer
+   pops into your head once you stop staring at it. 🏒
+
+> **The #1 secret of every programmer:** they get stuck *constantly*, and they
+> just keep trying things. Being stuck doesn't mean you're bad at this — it means
+> you're doing it. Every bug you beat makes you better. Now get out there. 🥅
+

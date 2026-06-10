@@ -617,6 +617,70 @@ async function clearErrors() {
   }
 }
 
+function _renderTraining(rep) {
+  const el = document.getElementById("trainReport");
+  if (!el) return;
+  const p = rep.performance || {};
+  const m = rep.measurement || {};
+  const pct = (x) => `${Math.round((x || 0) * 100)}%`;
+
+  const have = p.n || 0;
+  const need = p.min_samples || 0;
+  const ready = !!p.ready;
+  const progPct = need > 0 ? Math.min(100, Math.round((have / need) * 100)) : 0;
+
+  const statBlock = have > 0 ? `
+    <div class="train-stats">
+      <div class="train-stat"><span class="train-num">${p.ai_bias > 0 ? "+" : ""}${p.ai_bias ?? "—"}</span><span class="train-lbl">avg bias (pts)</span></div>
+      <div class="train-stat"><span class="train-num">${p.mae ?? "—"}</span><span class="train-lbl">avg error (pts)</span></div>
+      <div class="train-stat"><span class="train-num">${p.calibration?.correlation ?? "—"}</span><span class="train-lbl">agreement (r)</span></div>
+    </div>` : "";
+
+  const fit = p.calibration;
+  const fitBlock = (ready && fit) ? `
+    <div class="train-fit">
+      <strong>Fitted correction:</strong> score → ${fit.a}·score ${fit.b >= 0 ? "+ " + fit.b : "− " + Math.abs(fit.b)}
+      <span class="muted">(cuts avg error ${fit.mae_before} → ${fit.mae_after} pts over ${fit.n} reviews)</span>
+    </div>` : "";
+
+  const checks = [];
+  if (p.too_high_count) checks.push(`scored too high ×${p.too_high_count}`);
+  if (p.too_low_count) checks.push(`scored too low ×${p.too_low_count}`);
+  const checkBlock = checks.length ? `<p class="train-flags">Expert flags: ${escapeHtml(checks.join(" · "))}</p>` : "";
+
+  const worst = m.worst_metric
+    ? `<p class="train-flags">Least-trusted measurement: <strong>${escapeHtml(m.worst_metric)}</strong> (${pct(m.worst_bad_rate)} flagged bad over ${m.metric_flags?.[m.worst_metric]?.total || 0} reviews)</p>`
+    : "";
+
+  el.innerHTML = `
+    <div class="train-progress" title="${have} of ${need} reviews">
+      <div class="train-bar"><span style="width:${progPct}%"></span></div>
+      <span class="train-prog-lbl">${have} / ${need} expert reviews ${ready ? "✓ ready to calibrate" : "to calibrate"}</span>
+    </div>
+    ${statBlock}
+    <p class="train-rec ${ready ? "is-ready" : ""}">${escapeHtml(p.recommendation || "")}</p>
+    ${fitBlock}
+    ${checkBlock}
+    ${worst}`;
+}
+
+async function loadTraining() {
+  const status = document.getElementById("trainStatus");
+  if (!document.getElementById("trainReport")) return;
+  if (status) status.textContent = "Loading…";
+  try {
+    const res = await fetch(`${API}/training/report`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rep = await res.json();
+    if (status) status.textContent = "";
+    _renderTraining(rep);
+  } catch (e) {
+    if (status) status.textContent = "Couldn't load calibration.";
+    const el = document.getElementById("trainReport");
+    if (el) el.innerHTML = `<p class="muted">Training report unavailable (${escapeHtml(String(e.message || e))}).</p>`;
+  }
+}
+
 function openRecordingTips() {
   const overlay = document.getElementById("tipsOverlay");
   const video = document.getElementById("tipsVideo");

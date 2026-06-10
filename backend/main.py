@@ -35,6 +35,7 @@ from report import render_report, render_session_report
 import session as session_mod
 from segmenter import suggest_segments
 from errors import log_error, recent_errors, clear_errors
+from training import build_calibration_report
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
@@ -704,6 +705,18 @@ def clear_error_log():
     """Delete the error log. Returns how many entries were removed."""
     removed = clear_errors()
     return JSONResponse({"ok": True, "removed": removed})
+
+
+@app.get("/training/report")
+def training_report():
+    """Calibration report: how well the analyzer agrees with expert feedback,
+    plus a fitted correction and per-metric reliability. Read-only."""
+    try:
+        records = feedback_mod.all_feedback(FEEDBACK_LOG)
+    except Exception as e:
+        log_error("training_report", e)
+        records = []
+    return JSONResponse(build_calibration_report(records))
 
 
 # ── Multi-attempt segmenting ─────────────────────────────────────────────────

@@ -551,6 +551,16 @@
         </div>
       </div>
 
+      <details class="ctx-card diag-card" id="training" ontoggle="if(this.open)loadTraining()">
+        <summary class="diag-summary">Training &amp; Calibration <span class="hint">teach the analyzer</span></summary>
+        <p class="muted diag-help">As coaches submit Expert Feedback, this compares the analyzer's scores against expert judgement, surfaces its bias, and fits a correction. The more reviews collected, the sharper the calibration.</p>
+        <div class="ctx-actions">
+          <button class="btn-ghost small" type="button" onclick="loadTraining()">Refresh</button>
+          <span id="trainStatus" class="fb-status"></span>
+        </div>
+        <div id="trainReport" class="train-report"></div>
+      </details>
+
       <details class="ctx-card diag-card" id="diagnostics" ontoggle="if(this.open)loadErrors()">
         <summary class="diag-summary">Diagnostics <span class="hint">recent activity</span></summary>
         <p class="muted diag-help">Recent backend &amp; browser errors, plus rejected uploads (a clip we declined to score) with the signal values behind each call. Newest first.</p>

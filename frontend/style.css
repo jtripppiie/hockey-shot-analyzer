@@ -2124,6 +2124,32 @@ body.modal-open { overflow: hidden; }
 }
 .diag-pill.is-active .diag-count { background: rgba(255,255,255,0.28); }
 .error-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; max-height: 340px; overflow-y: auto; }
+.train-report { margin-top: 10px; }
+.train-progress { margin: 6px 0 12px; }
+.train-bar {
+  height: 8px; border-radius: 999px; background: var(--l-surface-2, #eef2f7);
+  overflow: hidden;
+}
+.train-bar span {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--l-accent, #2563eb); transition: width .4s ease;
+}
+.train-prog-lbl { display: inline-block; margin-top: 6px; font-size: 0.8125rem; color: var(--l-text-soft, #6b7280); }
+.train-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+.train-stat {
+  flex: 1 1 90px; text-align: center; padding: 10px 8px;
+  border: 1px solid var(--l-border, #e2e6ee); border-radius: 10px;
+  background: var(--l-surface-2, #f8fafc);
+}
+.train-num { display: block; font-size: 1.25rem; font-weight: 800; color: var(--l-text, #1f2937); }
+.train-lbl { display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .03em; color: var(--l-text-soft, #6b7280); }
+.train-rec { margin: 8px 0; font-size: 0.9375rem; }
+.train-rec.is-ready { font-weight: 600; }
+.train-fit {
+  margin: 8px 0; padding: 10px 12px; border-radius: 10px; font-size: 0.875rem;
+  background: rgba(37,99,235,0.07); border: 1px solid rgba(37,99,235,0.18);
+}
+.train-flags { margin: 6px 0; font-size: 0.875rem; color: var(--l-text-soft, #6b7280); }
 .err-row {
   border: 1px solid var(--l-border, #e2e6ee);
   border-left: 3px solid var(--l-border-strong, #cbd5e1);

@@ -242,18 +242,44 @@ only large local asset (gitignored).
    verbatim in the pole repo. Regression tests: `test_save_upload_*` in
    `backend/test_cleanup.py`.
 
+18. **Feedback-driven calibration ("training")** — The analyzer is heuristic
+   (joint-angle threshold bands → weighted power/technique/timing → overall), so
+   "training" is a **calibration loop**, not a neural retrain. Expert Feedback
+   Mode + Measurement Feedback already capture corrections in
+   `output/feedback_log.jsonl` (`ai_score` vs `human_score`, `score_delta`,
+   per-metric good/bad ratings), but nothing read them back. `backend/training.py`
+   closes the loop with **pure, read-only** functions: `fit_linear_calibration(
+   pairs)` least-squares-fits `human ≈ a·ai + b` over (ai_score, human_score)
+   pairs (returns `{a, b, n, mae_before, mae_after, improvement, correlation}`,
+   or `None` when <2 points or no x-spread), and `build_calibration_report(
+   records, min_samples=CALIBRATION_MIN_SAMPLES)` returns a `{performance,
+   measurement}` report: AI bias (mean `human-ai`), MAE/RMSE, correlation, the
+   fitted correction, `ai_score_too_high/low` checkbox counts, plus per-metric
+   reliability from measurement feedback (`worst_metric` by bad-rate). A
+   **readiness gate** (`CALIBRATION_MIN_SAMPLES`, env, default 12) reports "need
+   N more reviews" rather than a noisy fit. Exposed via `GET /training/report`
+   (reads `feedback_mod.all_feedback`); surfaced in **Settings → Training &
+   Calibration** (`#training`, `loadTraining()` → `_renderTraining()`): a
+   reviews-progress bar, bias/error/agreement stat tiles, the fitted-correction
+   line, expert flags, and least-trusted metric. **Read-only for now — it
+   *recommends* a correction but does not yet apply it to scoring** (applying the
+   fit is the natural opt-in follow-up, gated on the same sample count).
+   Sport-agnostic, mirrored verbatim in the pole repo. Tests:
+   `backend/test_training.py` (`python test_training.py`).
+
 | Path | Purpose |
 |------|---------|
-| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`; `_save_upload` / `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `_limit_upload_size` middleware; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
+| `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`, `/training/report`; `_save_upload` / `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `_limit_upload_size` middleware; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |
 | `backend/feedback.py` | JSONL schema + `save_feedback` / `save_measurement_feedback`; constants `CHECKBOX_KEYS`, `MEASUREMENT_CHECKBOX_KEYS`, `METRIC_RATINGS`, `OVERALL_MEASUREMENT_LABELS`; `APP_VERSION` |
 | `backend/errors.py` | Centralized append-only error log (`output/error_log.jsonl`); `log_error`, `recent_errors`; field caps + `_safe_context` |
 | `backend/session.py` | Practice Sessions store + sport-agnostic `summarize_session` (averages + first-vs-last trends) |
 | `backend/segmenter.py` | Multi-rep attempt detection (smoothing + local maxima + NMS); `suggest_segments`, `events_to_windows`; surfaced via `/suggest-segments` + `/analyze-segment` |
+| `backend/training.py` | Feedback-driven calibration (pure/read-only): `fit_linear_calibration`, `build_calibration_report`; surfaced via `GET /training/report` + Settings → Training & Calibration |
 | `backend/test_session.py` | Self-contained tests for session + segmenter (`python test_session.py`) |
 | `backend/test_errors.py` | Self-contained tests for the error log: `clear_errors`, `recent_errors`, opt-in `ERROR_LOG_MAX_LINES` cap (`python test_errors.py`) |
 | `backend/test_segment.py` | Self-contained tests for `_trim_clip` + suggest→trim round-trip + `scene_cut_precheck` (needs ffmpeg; `python test_segment.py`) |
 | `backend/test_cleanup.py` | Self-contained tests for storage retention: `_sweep_old_uploads`, `_enforce_history_cap`, `_delete_job_artifacts`, plus the `_save_upload` size cap (`python test_cleanup.py`) |
-| `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
+| `backend/test_training.py` | Self-contained tests for calibration: `fit_linear_calibration` recovery/bias, readiness gate, per-metric flags (`python test_training.py`) || `backend/test_real_clips.py` | Replays frozen real-footage fixtures through `compute_metrics`, asserting guard classifications (`python test_real_clips.py`) |
 | `backend/fixtures/*.landmarks.json.gz` | Git-tracked gzipped landmark fixtures (real YouTube clips, pose pre-run) backing `test_real_clips.py` |
 | `backend/report.py` | `render_report(... expert=False)` HTML template; captured frames render as `<img class='fb-frame'>` inside fb-card / mfb-card |
 | `backend/overlay.py` | `_draw_skeleton()` (alpha-blended) + H.264 re-encode pipeline |

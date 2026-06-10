@@ -17,9 +17,11 @@ Sport-agnostic: the pole-vault repo ships an identical copy.
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 from datetime import datetime
+from pathlib import Path
 
 # Below this many usable expert reviews, a fit is statistically meaningless, so
 # we report "not enough data yet" rather than a noisy correction. Opt-in via env.
@@ -166,3 +168,86 @@ def build_calibration_report(records: list[dict],
         "performance": _performance_report(perf, min_samples),
         "measurement": _measurement_report(meas),
     }
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Applying the correction — opt-in, persisted, reversible.
+#
+# We store one small JSON (output/calibration.json). When enabled, scoring maps
+# each summary score s → clamp(round(a·s + b), 0, 100). Because `overall` is an
+# affine (weighted) combination of the sub-scores, applying the SAME affine map
+# to every sub-score keeps overall == weighted-avg(sub-scores) consistent.
+# ───────────────────────────────────────────────────────────────────────────
+
+def apply_score(score, calib: dict | None):
+    """Map one 0–100 score through an enabled calibration. No-op when calib is
+    absent/disabled or score is None. Result is clamped to 0–100 and rounded."""
+    if score is None or not calib or not calib.get("enabled"):
+        return score
+    a = calib.get("a")
+    b = calib.get("b")
+    if a is None or b is None:
+        return score
+    return max(0, min(100, int(round(a * float(score) + b))))
+
+
+def apply_to_summary(summary: dict, calib: dict | None) -> dict:
+    """Return a calibrated copy of a {overall, power, technique, timing} summary.
+    Stashes the untouched values under `summary["raw"]` so the original scores
+    remain visible/recoverable. No-op (returns the same dict) when disabled."""
+    if not summary or not calib or not calib.get("enabled"):
+        return summary
+    keys = ("overall", "power", "technique", "timing")
+    raw = {k: summary.get(k) for k in keys}
+    out = dict(summary)
+    for k in keys:
+        out[k] = apply_score(summary.get(k), calib)
+    out["raw"] = raw
+    out["calibrated"] = True
+    return out
+
+
+def load_calibration(path) -> dict | None:
+    """Read the persisted calibration, or None if missing/unreadable."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text())
+        return data if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def save_calibration(path, *, a: float, b: float, n: int,
+                     mae_before=None, mae_after=None, correlation=None,
+                     enabled: bool = True) -> dict:
+    """Persist a fitted correction. Returns the stored record."""
+    record = {
+        "enabled": bool(enabled),
+        "a": round(float(a), 4),
+        "b": round(float(b), 2),
+        "n": int(n),
+        "mae_before": mae_before,
+        "mae_after": mae_after,
+        "correlation": correlation,
+        "fitted_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(record, ensure_ascii=False, indent=2))
+    return record
+
+
+def clear_calibration(path) -> bool:
+    """Delete the persisted calibration (revert to raw scoring). Returns True if
+    a file was removed."""
+    p = Path(path)
+    try:
+        if p.exists():
+            p.unlink()
+            return True
+    except OSError:
+        pass
+    return False
+

@@ -5,6 +5,9 @@ Self-contained: `python backend/test_training.py` (no pytest). Pure functions,
 no file I/O.
 """
 
+import tempfile
+from pathlib import Path
+
 import training as T
 
 
@@ -104,6 +107,52 @@ def test_legacy_rows_without_type_treated_as_performance():
     recs = [{"ai_score": 50, "human_score": 55}]   # no "type" key
     perf = T.build_calibration_report(recs)["performance"]
     assert perf["n"] == 1
+
+
+def test_apply_score_noop_when_disabled_or_missing():
+    assert T.apply_score(50, None) == 50
+    assert T.apply_score(50, {"enabled": False, "a": 2, "b": 0}) == 50
+    assert T.apply_score(None, {"enabled": True, "a": 1, "b": 0}) is None
+
+
+def test_apply_score_maps_and_clamps():
+    calib = {"enabled": True, "a": 0.5, "b": 10}
+    assert T.apply_score(80, calib) == 50          # 0.5*80+10
+    calib_hi = {"enabled": True, "a": 2.0, "b": 0}
+    assert T.apply_score(80, calib_hi) == 100      # clamped from 160
+    calib_lo = {"enabled": True, "a": 1.0, "b": -50}
+    assert T.apply_score(20, calib_lo) == 0        # clamped from -30
+
+
+def test_apply_to_summary_preserves_overall_consistency():
+    # overall is a weighted avg of subs; same affine map keeps it consistent.
+    summary = {"overall": 60, "power": 70, "technique": 50, "timing": 60}
+    calib = {"enabled": True, "a": 0.8, "b": 12}
+    out = T.apply_to_summary(summary, calib)
+    assert out["calibrated"] is True
+    assert out["raw"]["overall"] == 60
+    assert out["overall"] == round(0.8 * 60 + 12)
+    assert out["power"] == round(0.8 * 70 + 12)
+
+
+def test_apply_to_summary_noop_when_disabled():
+    summary = {"overall": 60, "power": 70, "technique": 50, "timing": 60}
+    assert T.apply_to_summary(summary, None) is summary
+    assert T.apply_to_summary(summary, {"enabled": False}) is summary
+
+
+def test_save_load_clear_calibration_roundtrip():
+    d = tempfile.TemporaryDirectory()
+    path = Path(d.name) / "calibration.json"
+    assert T.load_calibration(path) is None
+    saved = T.save_calibration(path, a=0.9, b=5, n=14, correlation=0.7)
+    assert saved["enabled"] is True
+    loaded = T.load_calibration(path)
+    assert loaded["a"] == 0.9 and loaded["b"] == 5 and loaded["n"] == 14
+    assert T.clear_calibration(path) is True
+    assert T.load_calibration(path) is None
+    assert T.clear_calibration(path) is False      # already gone
+    d.cleanup()
 
 
 def _run_all():

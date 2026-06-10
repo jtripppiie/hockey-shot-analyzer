@@ -622,6 +622,7 @@ function _renderTraining(rep) {
   if (!el) return;
   const p = rep.performance || {};
   const m = rep.measurement || {};
+  const applied = rep.applied || null;
   const pct = (x) => `${Math.round((x || 0) * 100)}%`;
 
   const have = p.n || 0;
@@ -652,6 +653,26 @@ function _renderTraining(rep) {
     ? `<p class="train-flags">Least-trusted measurement: <strong>${escapeHtml(m.worst_metric)}</strong> (${pct(m.worst_bad_rate)} flagged bad over ${m.metric_flags?.[m.worst_metric]?.total || 0} reviews)</p>`
     : "";
 
+  // Applied-calibration banner + action buttons.
+  let stateBlock = "";
+  if (applied && applied.enabled) {
+    stateBlock = `
+      <div class="train-applied">
+        <span class="train-applied-pill">● Calibration active</span>
+        <span class="muted">score → ${applied.a}·score ${applied.b >= 0 ? "+ " + applied.b : "− " + Math.abs(applied.b)} · from ${applied.n} reviews</span>
+      </div>
+      <div class="ctx-actions">
+        <button class="btn-ghost small" type="button" onclick="revertCalibration()">Revert to raw scoring</button>
+        ${ready && fit ? `<button class="btn-ghost small" type="button" onclick="applyCalibration()">Re-fit from latest</button>` : ""}
+      </div>`;
+  } else if (ready && fit) {
+    stateBlock = `
+      <div class="ctx-actions">
+        <button class="btn-primary small" type="button" onclick="applyCalibration()">Apply this correction to scoring</button>
+      </div>
+      <p class="muted train-flags">Future analyses will use the corrected scores. You can revert anytime.</p>`;
+  }
+
   el.innerHTML = `
     <div class="train-progress" title="${have} of ${need} reviews">
       <div class="train-bar"><span style="width:${progPct}%"></span></div>
@@ -660,8 +681,39 @@ function _renderTraining(rep) {
     ${statBlock}
     <p class="train-rec ${ready ? "is-ready" : ""}">${escapeHtml(p.recommendation || "")}</p>
     ${fitBlock}
+    ${stateBlock}
     ${checkBlock}
     ${worst}`;
+}
+
+async function applyCalibration() {
+  const status = document.getElementById("trainStatus");
+  if (status) status.textContent = "Applying…";
+  try {
+    const res = await fetch(`${API}/training/apply`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail === "not_enough_feedback" ? "Need more expert reviews first." : `HTTP ${res.status}`);
+    }
+    if (status) status.textContent = "Calibration applied.";
+    loadTraining();
+  } catch (e) {
+    if (status) status.textContent = String(e.message || "Couldn't apply.");
+  }
+}
+
+async function revertCalibration() {
+  const status = document.getElementById("trainStatus");
+  if (!confirm("Turn off the expert calibration and return to raw scoring?")) return;
+  if (status) status.textContent = "Reverting…";
+  try {
+    const res = await fetch(`${API}/training/revert`, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (status) status.textContent = "Reverted to raw scoring.";
+    loadTraining();
+  } catch (e) {
+    if (status) status.textContent = "Couldn't revert.";
+  }
 }
 
 async function loadTraining() {

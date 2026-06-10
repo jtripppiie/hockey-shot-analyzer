@@ -2150,6 +2150,12 @@ body.modal-open { overflow: hidden; }
   background: rgba(37,99,235,0.07); border: 1px solid rgba(37,99,235,0.18);
 }
 .train-flags { margin: 6px 0; font-size: 0.875rem; color: var(--l-text-soft, #6b7280); }
+.train-applied {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 8px 0; padding: 8px 12px; border-radius: 10px; font-size: 0.875rem;
+  background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);
+}
+.train-applied-pill { font-weight: 700; color: #047857; white-space: nowrap; }
 .err-row {
   border: 1px solid var(--l-border, #e2e6ee);
   border-left: 3px solid var(--l-border-strong, #cbd5e1);

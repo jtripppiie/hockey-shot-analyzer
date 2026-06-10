@@ -261,11 +261,22 @@ only large local asset (gitignored).
    (reads `feedback_mod.all_feedback`); surfaced in **Settings → Training &
    Calibration** (`#training`, `loadTraining()` → `_renderTraining()`): a
    reviews-progress bar, bias/error/agreement stat tiles, the fitted-correction
-   line, expert flags, and least-trusted metric. **Read-only for now — it
-   *recommends* a correction but does not yet apply it to scoring** (applying the
-   fit is the natural opt-in follow-up, gated on the same sample count).
-   Sport-agnostic, mirrored verbatim in the pole repo. Tests:
-   `backend/test_training.py` (`python test_training.py`).
+   line, expert flags, and least-trusted metric. **Opt-in apply:** once the
+   readiness gate clears, `POST /training/apply` fits the correction and
+   persists it to `output/calibration.json` (`{enabled, a, b, n, mae_before,
+   mae_after, correlation, fitted_at}` via `training.save_calibration`);
+   `_analyze_video` then loads it once per analysis and routes the summary
+   through `apply_to_summary(summary, calib)` — an affine `a·score+b` clamped to
+   0–100, applied to overall + every sub-score so `overall` stays the
+   weighted-avg of the subs (raw scores stashed under `summary["raw"]`,
+   `summary["calibrated"]=True`). This propagates to the history CSV, job JSON,
+   and the returned JSON (all read from `result["summary"]`). `POST
+   /training/revert` deletes the file (`clear_calibration`) and returns to raw
+   scoring; `GET /training/report` includes the live state under `applied`. The
+   UI renders a green "Calibration active" banner + Revert button when applied,
+   and an "Apply this correction" button when ready. Sport-agnostic, mirrored
+   verbatim in the pole repo. Tests: `backend/test_training.py`
+   (`python test_training.py`).
 
 | Path | Purpose |
 |------|---------|

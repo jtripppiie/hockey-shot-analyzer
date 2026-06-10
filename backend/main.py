@@ -35,13 +35,20 @@ from report import render_report, render_session_report
 import session as session_mod
 from segmenter import suggest_segments
 from errors import log_error, recent_errors, clear_errors
-from training import build_calibration_report
+from training import (
+    build_calibration_report,
+    apply_to_summary,
+    load_calibration,
+    save_calibration,
+    clear_calibration,
+)
 BASE_DIR   = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
 HISTORY_CSV = BASE_DIR / "output" / "history.csv"
 FEEDBACK_LOG = BASE_DIR / "output" / "feedback_log.jsonl"
 FRONTEND_DIR = BASE_DIR / "frontend"
+CALIBRATION_PATH = BASE_DIR / "output" / "calibration.json"
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -234,6 +241,12 @@ def _analyze_video(video_path: str, display_name: str, job_id: str,
             log_error("warn:camera_cuts", severity="info",
                       message="flagged: clip looks discontinuous (camera cuts)",
                       context={"job_id": job_id, "continuity_check": cc})
+
+        # Opt-in calibration: if an expert-fitted correction is enabled, map the
+        # summary scores through it (keeps overall == weighted-avg of subs).
+        calib = load_calibration(CALIBRATION_PATH)
+        if calib and calib.get("enabled"):
+            result["summary"] = apply_to_summary(result["summary"], calib)
 
         overall = result["summary"]["overall"]
 
@@ -716,7 +729,47 @@ def training_report():
     except Exception as e:
         log_error("training_report", e)
         records = []
-    return JSONResponse(build_calibration_report(records))
+    report = build_calibration_report(records)
+    report["applied"] = load_calibration(CALIBRATION_PATH)
+    return JSONResponse(report)
+
+
+@app.post("/training/apply")
+def training_apply():
+    """Fit a correction from expert feedback and enable it for future scoring.
+    Gated on the readiness threshold; refuses when there isn't enough data."""
+    try:
+        records = feedback_mod.all_feedback(FEEDBACK_LOG)
+    except Exception as e:
+        log_error("training_apply:read", e)
+        records = []
+    report = build_calibration_report(records)
+    perf = report["performance"]
+    if not perf.get("ready"):
+        raise HTTPException(409, "not_enough_feedback")
+    fit = perf.get("calibration")
+    if not fit:
+        raise HTTPException(409, "no_calibration_fit")
+    saved = save_calibration(
+        CALIBRATION_PATH,
+        a=fit["a"], b=fit["b"], n=fit["n"],
+        mae_before=fit.get("mae_before"), mae_after=fit.get("mae_after"),
+        correlation=fit.get("correlation"), enabled=True,
+    )
+    log_error("training:calibration_applied", severity="info",
+              message="expert calibration enabled",
+              context={"a": saved["a"], "b": saved["b"], "n": saved["n"]})
+    return JSONResponse({"ok": True, "applied": saved})
+
+
+@app.post("/training/revert")
+def training_revert():
+    """Disable the applied calibration and return to raw scoring."""
+    removed = clear_calibration(CALIBRATION_PATH)
+    if removed:
+        log_error("training:calibration_reverted", severity="info",
+                  message="expert calibration reverted to raw scoring")
+    return JSONResponse({"ok": True, "reverted": removed})
 
 
 # ── Multi-attempt segmenting ─────────────────────────────────────────────────

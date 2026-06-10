@@ -436,7 +436,6 @@ async function submitYouTube() {
 // ── Player profile (optional, persisted locally) ───────────────────────────
 const PLAYER_PROFILE_KEY = "hockeyPlayerProfile.v1";
 const PLAYER_PROFILE_FIELDS = ["profileAccent", "profileHandOverride"];
-const ONBOARDING_KEY = "hockeyOnboardingSeen.v1";
 const TIPS_VIDEO_SRC = "https://www.youtube.com/embed?listType=search&list=how%20to%20record%20hockey%20shot%20side%20view&autoplay=1";
 
 const ACCENT_PRESETS = {
@@ -750,24 +749,6 @@ function closeRecordingTips() {
   if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
 }
 
-function _showOnboardingIfNeeded() {
-  if (localStorage.getItem(ONBOARDING_KEY) === "1") return;
-  document.getElementById("onboardingOverlay")?.classList.remove("hidden");
-  document.body.classList.add("modal-open");
-}
-
-function acceptOnboardingCustomize() {
-  localStorage.setItem(ONBOARDING_KEY, "1");
-  document.getElementById("onboardingOverlay")?.classList.add("hidden");
-  openSettings();
-}
-
-function skipOnboarding() {
-  localStorage.setItem(ONBOARDING_KEY, "1");
-  document.getElementById("onboardingOverlay")?.classList.add("hidden");
-  if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
-}
-
 function clearPlayerProfile() {
   for (const id of PLAYER_PROFILE_FIELDS) {
     const el = document.getElementById(id);
@@ -781,7 +762,6 @@ function clearPlayerProfile() {
 
 function startFresh() {
   localStorage.clear();
-  localStorage.setItem(ONBOARDING_KEY, "1");
   clearPlayerProfile();
   resetUI();
 }
@@ -792,7 +772,6 @@ window.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("change", _savePlayerProfile);
   }
-  _showOnboardingIfNeeded();
 });
 
 function _savedHandOverride() {

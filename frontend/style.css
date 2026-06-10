@@ -802,7 +802,6 @@ body.modal-open { overflow: hidden; }
   height: 100%;
   border: 0;
 }
-.onboarding-dialog { width: min(440px, 100%); }
 .mobile-back { display: none; }
 .tips-card::before,
 .ctx-card::before {

@@ -374,7 +374,7 @@ body.modal-open { overflow: hidden; }
 }
 .hero-feature:last-child .hero-feature-label { color: #041E42; }
 
-.hero-body { max-width: 720px; }
+.hero-body { max-width: none; }
 .hero-kicker-wrap {
   display: flex;
   flex-wrap: wrap;

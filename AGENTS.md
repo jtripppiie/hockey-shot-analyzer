@@ -304,6 +304,21 @@ only large local asset (gitignored).
    the vault sport guard doesn't catch it). Tests: `backend/test_batch_eval.py`
    (`python test_batch_eval.py`).
 
+20. **Results grid must stay shrinkable (mobile no-h-scroll)** — The results
+   dashboard once scrolled horizontally on narrow phones (<~375px). Cause: CSS
+   grid tracks default to a `min-content` floor, so a column with no explicit
+   sizing (or `minmax(300px, …)`) refuses to shrink below its content and
+   overflows the padded container. Fix lives entirely in `frontend/style.css`:
+   the base `.analysis-dashboard` uses `grid-template-columns: minmax(0, 1fr)`;
+   `.result-hero` / `.result-block` / `.result-video` / `.coach-report` and
+   `.metric-card` carry `min-width: 0`; and `.metric-grid` uses
+   `repeat(auto-fill, minmax(min(300px, 100%), 1fr))` so the column floor never
+   exceeds the viewport. **Rule of thumb:** any new grid/flex item placed in the
+   results dashboard needs `min-width: 0` (and grid tracks need `minmax(0, …)`
+   or `min(px, 100%)`) or it will reintroduce the horizontal scroll. Verified
+   `scrollWidth == clientWidth` at 320/360/375/390/414/768/1024/1280. Sport-
+   agnostic, mirrored verbatim in the pole repo.
+
 | Path | Purpose |
 |------|---------|
 | `backend/main.py` | All FastAPI routes; `/feedback`, `/measurement-feedback`, `/capture-frame`, `/report/{job_id}`, `/sessions*`, `/suggest-segments`, `/analyze-segment`, `/client-error`, `/errors`, `/errors/clear`, `/training/report`; `_save_upload` / `_trim_clip` / `_sweep_old_uploads` / `_enforce_history_cap` / `_delete_job_artifacts` helpers; `_limit_upload_size` middleware; `@app.on_event("startup")` cleanup; global `@app.exception_handler(Exception)` |

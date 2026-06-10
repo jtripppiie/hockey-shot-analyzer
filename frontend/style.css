@@ -150,10 +150,10 @@ main { width: 100%; }
 .brand-mark { width: 34px; height: 34px; flex: 0 0 34px; object-fit: contain; }
 .topbar-dark .brand-mark,
 .topbar-light .brand-mark { color: var(--l-text); }
-.topbar-actions { display: flex; align-items: center; gap: 10px; position: relative; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; position: relative; }
 .icon-btn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -165,6 +165,37 @@ main { width: 100%; }
   font: inherit;
 }
 .icon-btn:hover { border-color: rgba(4, 30, 66, 0.28); }
+
+/* Topbar buttons share one height + pill shape so the row reads as a set. */
+.topbar-actions .btn-ghost,
+.topbar-actions .btn-ghost-dark,
+.topbar-actions .icon-btn {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(4, 30, 66, 0.04);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.topbar-actions .btn-ghost,
+.topbar-actions .btn-ghost-dark { padding: 0 16px; }
+.topbar-actions .icon-btn {
+  width: 36px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.68);
+  font-size: 0.9375rem;
+}
+.topbar-actions .btn-ghost:hover,
+.topbar-actions .btn-ghost-dark:hover,
+.topbar-actions .icon-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--l-border-strong);
+  box-shadow: 0 6px 16px -8px rgba(4, 30, 66, 0.3);
+}
 body.modal-open { overflow: hidden; }
 
 /* ─── Hero (upload) ─────────────────────────────────────────────────────── */
@@ -308,30 +339,33 @@ body.modal-open { overflow: hidden; }
 
 .hero-art-callout {
   position: absolute;
-  max-width: 170px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(4, 30, 66, 0.1);
-  backdrop-filter: blur(10px);
+  max-width: 138px;
+  padding: 8px 11px 8px 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(4, 30, 66, 0.08);
+  border-left: 3px solid var(--blue);
+  box-shadow: 0 14px 34px -20px rgba(4, 30, 66, 0.5);
+  backdrop-filter: blur(12px);
 }
 .hero-art-callout strong {
   display: block;
   color: var(--l-text);
-  font-size: 0.875rem;
-  line-height: 1.35;
+  font-size: 0.75rem;
+  line-height: 1.28;
 }
-.hero-art-callout-top { top: 34px; right: 24px; }
-.hero-art-callout-bottom { left: 24px; bottom: 24px; }
+.hero-art-callout-top { top: 22px; right: 18px; }
+.hero-art-callout-bottom { left: 18px; bottom: 20px; border-left-color: #041E42; }
 .hero-callout-label {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   color: var(--blue);
-  font-size: 0.6563rem;
+  font-size: 0.5938rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+.hero-art-callout-bottom .hero-callout-label { color: #041E42; }
 
 .hero-body { max-width: 720px; }
 .hero-kicker-wrap {
@@ -912,7 +946,11 @@ body.modal-open { overflow: hidden; }
   .topbar-brand { font-size: 0.875rem; gap: 8px; }
   .brand-mark { width: 26px; height: 26px; flex: 0 0 26px; }
   .topbar-actions .btn-ghost,
-  .topbar-actions .btn-ghost-dark { padding: 7px 12px; font-size: 0.8125rem; }
+  .topbar-actions .btn-ghost-dark { padding: 0 14px; }
+  .topbar-actions .btn-ghost,
+  .topbar-actions .btn-ghost-dark,
+  .topbar-actions .icon-btn { height: 34px; font-size: 0.78rem; }
+  .topbar-actions .icon-btn { width: 34px; font-size: 0.9375rem; }
 
   .hero { gap: 18px; padding: 8px 0 16px; margin-top: 4px; }
   .hero-art-shell {
@@ -929,12 +967,12 @@ body.modal-open { overflow: hidden; }
     background-size: clamp(170px, 60%, 220px);
   }
   .hero-art-callout {
-    max-width: 128px;
-    padding: 8px 10px;
+    max-width: 122px;
+    padding: 7px 9px 7px 11px;
   }
-  .hero-art-callout strong { font-size: 0.75rem; }
-  .hero-art-callout-top { top: 18px; right: 14px; }
-  .hero-art-callout-bottom { left: 14px; bottom: 18px; }
+  .hero-art-callout strong { font-size: 0.7rem; }
+  .hero-art-callout-top { top: 14px; right: 12px; }
+  .hero-art-callout-bottom { left: 12px; bottom: 14px; }
   .hero-kicker-wrap { gap: 8px; margin-bottom: 12px; }
   .hero-kicker { min-height: 30px; padding: 0 11px; font-size: 0.6563rem; }
   h1,

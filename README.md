@@ -186,9 +186,9 @@ Each analyzed clip can be exported as a printable HTML report (Ctrl+P → Save a
 The expert panel has buttons for both after a shot is analyzed. Saved clips also
 show the same report actions from **History** → open a clip.
 
-### What we DON'T do (yet)
+### What "training" means here (and what it doesn't)
 
-The model **does not retrain itself** from corrections. We collect clean data first, hand-curate it, then later use it to tune scoring weights or train a better model. One coach's opinion ≠ ground truth.
+There's **no neural network retraining itself in the background.** The analyzer scores shots with fixed biomechanics rules (joint angles → power / technique / timing), so "training" it really means **calibrating** those scores against expert corrections — nudging the AI's number up or down until it lines up with what real coaches actually said. That whole loop lives in **Settings → Training & Calibration** and is walked through step-by-step in the **🎓 Training & Calibration** section further down. It only ever switches on when *you* click **Apply**, and you can **Revert** to the untouched scores at any moment. One coach's opinion ≠ ground truth — which is exactly why the loop refuses to offer a correction until it has collected a dozen reviews.
 
 ### Inspect the data later
 
@@ -271,6 +271,70 @@ New endpoint:
 POST /capture-frame                      Save a JPEG captured by the browser
                                          (multipart: job_id, t_sec, frame)
 ```
+
+---
+
+## 🎓 Training & Calibration — teach it from your feedback
+
+Once a few coaches have used **Expert Feedback Mode** (above), the app can turn those corrections into a **calibration** for its own scoring — so the number it shows lines up with what real coaches actually said. Open the **Settings** gear and expand **Training & Calibration**.
+
+> **This is not machine-learning retraining.** Nothing learns in the background. The analyzer scores shots with fixed biomechanics rules, and calibration simply learns *one straight-line correction* — e.g. "the AI runs about 6 points high, so pull every score down a bit" — and lays it on top. It's small, transparent, and 100 % reversible.
+
+### The short version
+
+1. Use **Expert Feedback Mode** on some clips and give each one a **corrected overall score**. (Just opening the panel isn't enough — you have to move the score slider and click **Save feedback**.)
+2. Do that on **at least 12 clips** (the default — see the readiness gate below). Each saved correction fills the progress bar in Training & Calibration.
+3. When the bar reads **✓ ready to calibrate**, a green **Apply this correction to scoring** button appears. Click it.
+4. From then on, every new analysis shows the **corrected** scores, and a green **● Calibration active** banner sits in the panel.
+5. Changed your mind? Click **Revert to raw scoring** any time — the original scoring comes straight back.
+
+### What the panel shows you
+
+Even before it's ready to calibrate, the panel is a live report card on the analyzer:
+
+| What you see | What it means |
+|---|---|
+| **`X / 12` expert reviews** progress bar | How many corrected scores you've saved vs. how many are needed to calibrate |
+| **avg bias (pts)** | On average, how far *off* the AI is. `+5` means it scores 5 points **too low**; `−5` means 5 points **too high** |
+| **avg error (pts)** | The typical size of the miss in either direction (mean absolute error) |
+| **agreement (r)** | How well the AI's ranking of shots matches the coaches' (correlation, −1…1; closer to 1 is better) |
+| **Fitted correction** | The exact straight-line fix it would apply: `score → a·score + b`, plus how much it shrinks the average error |
+| **Expert flags** | How many times reviewers ticked "AI score too high" / "too low" |
+| **Least-trusted measurement** | The single metric coaches most often thumbs-down in **Measurement Feedback** — your best clue about which rule to fix next |
+
+### How the math works (it's just a line)
+
+Calibration fits the best straight line through your `(AI score, coach score)` points by least squares — `coach ≈ a · AI + b`. Turning it on runs **every** score (overall *and* power, technique, timing) through that same line and clamps each result to 0–100. Because the overall score is a weighted average of the three sub-scores, putting all of them through the *same* line keeps everything consistent. The original numbers aren't thrown away — they're stashed under a `raw` field in the result, and the adjusted scores are flagged with `"calibrated": true`. The correction also flows through everywhere the score appears: the History list, the saved result JSON, and the printable reports.
+
+### The readiness gate (why 12?)
+
+With only two or three reviews, a "correction" is basically noise — one grumpy coach could swing it wildly. So the app refuses to fit a line until it has at least **`CALIBRATION_MIN_SAMPLES`** corrected scores (default **12**). Want a stricter or looser threshold? Set the environment variable before launching:
+
+```bash
+CALIBRATION_MIN_SAMPLES=20 ./run.sh
+```
+
+Until the gate clears, the panel tells you exactly how many more reviews it needs — and `Apply` will politely refuse.
+
+### Where it's stored
+
+When you click **Apply**, the fitted correction is written to:
+
+```
+output/calibration.json
+```
+
+It's a tiny file — `{enabled, a, b, n, mae_before, mae_after, correlation, fitted_at}` — and like everything in `output/`, it's **gitignored** and never leaves your machine. **Revert** simply deletes it and scoring snaps back to raw. Adding more reviews and clicking **Re-fit from latest** overwrites it with a fresh fit.
+
+### The endpoints behind it (advanced)
+
+```
+GET  /training/report     Agreement stats, fitted correction, per-metric reliability (read-only)
+POST /training/apply      Fit + enable the correction (refuses until the readiness gate clears)
+POST /training/revert     Delete the correction, return to raw scoring
+```
+
+`GET /training/report` is pure and read-only — it never changes scoring, so you can hit it any time to watch the numbers improve as feedback rolls in. Scores only ever change after an explicit **Apply**.
 
 ---
 
@@ -443,7 +507,7 @@ rm -rf .venv backend/pose_landmarker.task backend/uploads backend/output backend
 
 ```
 backend/         FastAPI app, pose detection, biomechanics, overlay rendering
-  main.py        HTTP endpoints (/analyze, /analyze-youtube, /suggest-segments, /analyze-segment, /history, /feedback, /report, /sessions, /errors)
+  main.py        HTTP endpoints (/analyze, /analyze-youtube, /suggest-segments, /analyze-segment, /history, /feedback, /report, /sessions, /training, /errors)
   pose.py        MediaPipe wrapper + smoothing
   metrics.py     Scoring math and coaching tips
   overlay.py     Skeleton drawing + H.264 re-encode

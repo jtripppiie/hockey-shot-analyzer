@@ -981,6 +981,21 @@ function renderResults(data) {
   document.getElementById("sub-technique").querySelector(".sub-val").style.color = scoreColor(s.technique || 0);
   document.getElementById("sub-timing").querySelector(".sub-val").style.color    = scoreColor(s.timing    || 0);
 
+  // Expert-calibration note: show raw→adjusted when a fitted correction is live
+  const calibNote = document.getElementById("calibNote");
+  if (calibNote) {
+    const raw = s.calibrated && s.raw ? s.raw.overall : null;
+    if (raw != null && raw !== s.overall) {
+      calibNote.textContent = `Adjusted by expert calibration · raw ${raw} → ${s.overall}`;
+      calibNote.hidden = false;
+    } else if (s.calibrated) {
+      calibNote.textContent = "Adjusted by expert calibration";
+      calibNote.hidden = false;
+    } else {
+      calibNote.hidden = true;
+    }
+  }
+
   // Data-quality banner (camera angle warnings, unmeasured metrics, etc.)
   _renderQualityBanner(data.quality_report);
 

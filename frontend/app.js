@@ -516,43 +516,88 @@ function closeSettings() {
   if (document.querySelectorAll(".app-modal:not(.hidden)").length === 0) document.body.classList.remove("modal-open");
 }
 
-async function loadErrors() {
+let _diagRows = [];
+let _diagFilter = "all";
+
+function _diagBucket(row) {
+  // "info" entries are telemetry — most are rejected/flagged uploads.
+  return (row.severity === "info") ? "rejections" : "errors";
+}
+
+function _renderContext(ctx) {
+  if (!ctx || typeof ctx !== "object" || Array.isArray(ctx) || Object.keys(ctx).length === 0) return "";
+  const json = JSON.stringify(ctx, null, 2);
+  return `<details class="err-ctx"><summary>signals</summary><pre>${escapeHtml(json)}</pre></details>`;
+}
+
+function _renderDiag() {
   const list = document.getElementById("errorList");
-  const status = document.getElementById("diagStatus");
   if (!list) return;
+  const counts = { all: _diagRows.length, rejections: 0, errors: 0 };
+  for (const r of _diagRows) counts[_diagBucket(r)]++;
+  for (const f of ["all", "rejections", "errors"]) {
+    const el = document.querySelector(`.diag-count[data-count="${f}"]`);
+    if (el) el.textContent = counts[f];
+  }
+
+  const rows = _diagRows.filter((r) => _diagFilter === "all" || _diagBucket(r) === _diagFilter);
+  if (rows.length === 0) {
+    const label = _diagFilter === "rejections" ? "No rejected uploads logged."
+      : _diagFilter === "errors" ? "No errors logged. 🎉"
+      : "Nothing logged yet. 🎉";
+    list.innerHTML = `<p class="muted">${label}</p>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((r) => {
+    const sev = ["info", "warning", "error", "critical"].includes(r.severity) ? r.severity : "error";
+    const src = escapeHtml(r.source || "backend");
+    const where = escapeHtml(r.where || "");
+    const type = r.error_type ? `<span class="err-type">${escapeHtml(r.error_type)}</span>` : "";
+    const msg = escapeHtml(r.message || "");
+    const ts = escapeHtml(r.ts || "");
+    const ctx = _renderContext(r.context);
+    const tb = r.traceback
+      ? `<details class="err-tb"><summary>traceback</summary><pre>${escapeHtml(r.traceback)}</pre></details>`
+      : "";
+    return `<div class="err-row err-${src} err-sev-${sev}">
+      <div class="err-head">
+        <span class="err-sev-pill err-sev-pill-${sev}">${escapeHtml(sev)}</span>
+        <span class="err-src err-src-${src}">${src}</span>
+        <span class="err-where">${where}</span>
+        ${type}
+        <span class="err-ts">${ts}</span>
+      </div>
+      <div class="err-msg">${msg || "<span class=\"muted\">(no message)</span>"}</div>
+      ${ctx}
+      ${tb}
+    </div>`;
+  }).join("");
+}
+
+function setDiagFilter(filter) {
+  _diagFilter = ["all", "rejections", "errors"].includes(filter) ? filter : "all";
+  document.querySelectorAll("#diagFilter .diag-pill").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.filter === _diagFilter);
+  });
+  _renderDiag();
+}
+
+async function loadErrors() {
+  const status = document.getElementById("diagStatus");
+  if (!document.getElementById("errorList")) return;
   if (status) status.textContent = "Loading…";
   try {
-    const res = await fetch(`${API}/errors?limit=50`);
+    const res = await fetch(`${API}/errors?limit=100`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
     if (status) status.textContent = "";
-    if (!Array.isArray(rows) || rows.length === 0) {
-      list.innerHTML = `<p class="muted">No errors logged. 🎉</p>`;
-      return;
-    }
-    list.innerHTML = rows.map((r) => {
-      const src = escapeHtml(r.source || "backend");
-      const where = escapeHtml(r.where || "");
-      const type = r.error_type ? `<span class="err-type">${escapeHtml(r.error_type)}</span>` : "";
-      const msg = escapeHtml(r.message || "");
-      const ts = escapeHtml(r.ts || "");
-      const tb = r.traceback
-        ? `<details class="err-tb"><summary>traceback</summary><pre>${escapeHtml(r.traceback)}</pre></details>`
-        : "";
-      return `<div class="err-row err-${src}">
-        <div class="err-head">
-          <span class="err-src err-src-${src}">${src}</span>
-          <span class="err-where">${where}</span>
-          ${type}
-          <span class="err-ts">${ts}</span>
-        </div>
-        <div class="err-msg">${msg || "<span class=\"muted\">(no message)</span>"}</div>
-        ${tb}
-      </div>`;
-    }).join("");
+    _diagRows = Array.isArray(rows) ? rows : [];
+    _renderDiag();
   } catch (e) {
-    if (status) status.textContent = "Couldn't load errors.";
-    list.innerHTML = `<p class="muted">Error log unavailable (${escapeHtml(String(e.message || e))}).</p>`;
+    if (status) status.textContent = "Couldn't load activity.";
+    const list = document.getElementById("errorList");
+    if (list) list.innerHTML = `<p class="muted">Diagnostics unavailable (${escapeHtml(String(e.message || e))}).</p>`;
   }
 }
 

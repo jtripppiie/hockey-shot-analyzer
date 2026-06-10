@@ -552,12 +552,17 @@
       </div>
 
       <details class="ctx-card diag-card" id="diagnostics" ontoggle="if(this.open)loadErrors()">
-        <summary class="diag-summary">Diagnostics <span class="hint">recent errors</span></summary>
-        <p class="muted diag-help">If something goes wrong, the most recent backend &amp; browser errors show up here. Newest first.</p>
+        <summary class="diag-summary">Diagnostics <span class="hint">recent activity</span></summary>
+        <p class="muted diag-help">Recent backend &amp; browser errors, plus rejected uploads (a clip we declined to score) with the signal values behind each call. Newest first.</p>
         <div class="ctx-actions">
           <button class="btn-ghost small" type="button" onclick="loadErrors()">Refresh</button>
           <button class="btn-ghost small" type="button" onclick="clearErrors()">Clear log</button>
           <span id="diagStatus" class="fb-status"></span>
+        </div>
+        <div class="diag-filter" id="diagFilter" role="tablist">
+          <button class="diag-pill is-active" type="button" data-filter="all" onclick="setDiagFilter('all')">All <span class="diag-count" data-count="all">0</span></button>
+          <button class="diag-pill" type="button" data-filter="rejections" onclick="setDiagFilter('rejections')">Rejections <span class="diag-count" data-count="rejections">0</span></button>
+          <button class="diag-pill" type="button" data-filter="errors" onclick="setDiagFilter('errors')">Errors <span class="diag-count" data-count="errors">0</span></button>
         </div>
         <div id="errorList" class="error-list"></div>
       </details>

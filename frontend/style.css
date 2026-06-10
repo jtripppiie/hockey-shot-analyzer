@@ -1020,7 +1020,7 @@ body.modal-open { overflow: hidden; }
   .result-block { padding: 18px 16px; border-radius: 16px; }
   .result-block-head h2 { font-size: 1.1875rem; }
   .phase-timeline { font-size: 0.6875rem; gap: 4px; padding-top: 12px; }
-  .metric-grid { grid-template-columns: 1fr; gap: 10px; }
+  .metric-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .metric-card { padding: 14px 14px; }
   .metric-card.metric-priority::before { font-size: 0.625rem; padding: 3px 8px; top: -8px; }
 
@@ -1121,13 +1121,16 @@ body.modal-open { overflow: hidden; }
   max-width: var(--page-width);
   margin: 22px auto 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
+.analysis-dashboard > .coach-report,
 .analysis-dashboard .result-hero,
 .analysis-dashboard .result-block,
 .analysis-dashboard .result-video {
   max-width: none;
   margin: 0;
+  min-width: 0;
 }
 .dashboard-main { display: contents; }
 
@@ -1436,7 +1439,7 @@ body.modal-open { overflow: hidden; }
 /* ── Metric grid (single-column, sorted weakest first by JS) ──────────── */
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 .metric-card {
@@ -1446,6 +1449,7 @@ body.modal-open { overflow: hidden; }
   padding: 16px 16px 14px;
   display: flex; flex-direction: column; gap: 8px;
   position: relative;
+  min-width: 0;
   box-shadow: 0 14px 34px -32px rgba(4, 30, 66, 0.42);
 }
 .metric-card.metric-priority {
